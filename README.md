@@ -1,6 +1,6 @@
 # STM32F0-FreeRTOS-CMSIS
 
-The template project for a quick start with STM32 microcontroller using CMSIS and FReeRTOS. Use this template for rapid prototyping and debugging firmware on Cortex-M0 microcontrollers. Note: This project forked from this repo - https://github.com/WoodyWoodsta/STM32F0-freeRTOS-CMSIS.
+The template project for a quick start with STM32 microcontroller using CMSIS and FReeRTOS. Use this template for rapid prototyping and debugging firmware on Cortex-M0 microcontrollers. Note: This project forked from [this](https://github.com/WoodyWoodsta/STM32F0-freeRTOS-CMSIS) repo.
 
 ## Project features
 ### STM32F0 microcontroller peripherals
@@ -33,6 +33,7 @@ The following were used for testing:
   - STM32F030C6 - "Blue Pill"
   - STM32F051R8 - [STM32F0DISCOVERY](https://www.st.com/en/evaluation-tools/stm32f0discovery.html)
   - STM32F072RB - [NUCLEO-F072RB](https://www.st.com/en/evaluation-tools/nucleo-f072rb.html)
+  - STM32G0B1CB - TODO
 
 ### Makefile
 TODO
