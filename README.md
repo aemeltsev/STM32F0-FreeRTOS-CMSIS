@@ -36,12 +36,41 @@ The following were used for testing:
   - STM32G0B1CB - TODO
 
 ### Makefile
-TODO
+Specify the type of microcontroller
+
+\```
+MCU_FAMILY        = STM32F0xx
+MCU_MODEL_FAMILY  = STM32F030x6
+MCU_MODEL         = STM32F030C6
+\```
+
+Of course, this project uses arm cortex-m0 microcontrollers arhitecture libraries. GNU Arm Embedded Toolchain is required to compile c, c++ and assembler files.
+
+\```
+sudo apt update
+sudo apt install gcc-arm-none-eabi
+\```
+
+Or you can read about specific installation details in [this](https://askubuntu.com/questions/1243252/how-to-install-arm-none-eabi-gdb-on-ubuntu-20-04-lts-focal-fossa) topic, or use script.
+Check if it works:
+
+\```
+arm-none-eabi-gcc --version
+arm-none-eabi-g++ --version
+arm-none-eabi-gdb --version
+arm-none-eabi-size --version
+\```
+
+During compilation, debug information is created, `-O2` optimization, flags for reducing the size of the generated code, THUMB instructions etc. Warning flags are enabled `-Wall` `-Wextra` `-Wstrict-prototypes`. 
+
 ### CMSIS
 TODO
+
 ### FreeRTOS
 TODO
+
 ### OpenOCD
 TODO
+
 ### Debug
 TODO
