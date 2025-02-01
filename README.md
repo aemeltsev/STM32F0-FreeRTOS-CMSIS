@@ -65,6 +65,7 @@ During compilation, debug information is created, `-O2` optimization, flags for 
 The linker parameters have the `USE_LINK_GC` garbage collection and `USE_LTO` link time optimization flags set. The linker uses a script that describes the memory allocation map. Entry Point of the program, typically the reset handler function. Memory Regions, available in the microcontroller:
   - `FLASH`: Read-only memory where the program code and constants are stored.
   - `RAM`: Read-write memory used for variables and stack.
+
 Sections defines how different parts of the program are mapped to the memory regions.
   - `.text`: Contains the program code and read-only data.
   - `.data`: Contains initialized global and static variables.
