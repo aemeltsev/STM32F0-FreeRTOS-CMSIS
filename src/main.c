@@ -1,7 +1,7 @@
 #include "stm32f0xx.h"
 //#include "usart.h"
 //#include "util.h"
-//#include "button.h"
+#include "button.h"
 
 static __IO uint32_t timing_delay_count;
 
@@ -11,10 +11,12 @@ void timing_delay_decrem(void);
 int main(void)
 {
     SysTick_Config(8000);
+    init_button_led();
+    uint8_t button_state = 0;
 
     while (1)
     {
-
+        button_to_led(&button_state);
     }
 }
 
