@@ -7,11 +7,11 @@ MCU_MODEL         = STM32F030C6
 include ./lib/CMSIS.mk
 #include ./lib/FreeRTOS.mk
 
-CSRC += src/main.c
+CSRC += src/main.c src/button.c src/util.c
 
 ASMSRC += 
 
-INCDIR += src/conf
+INCDIR += src/conf button.h util.h
 
 ##############################################################################
 # Compiler settings
@@ -299,7 +299,7 @@ ifeq ($(USE_VERBOSE_COMPILE),yes)
 	@echo
 	$(LD) $(OBJS) $(LDFLAGS) $(LIBS) -o $@
 else
-	@echo Linking $@
+	@echo Linking .elf file $@
 	@$(LD) $(OBJS) $(LDFLAGS) $(LIBS) -o $@
 endif
 
@@ -307,7 +307,7 @@ endif
 ifeq ($(USE_VERBOSE_COMPILE),yes)
 	$(HEX) $< $@
 else
-	@echo Creating $@
+	@echo Creating .hex file $@
 	@$(HEX) $< $@
 endif
 
@@ -315,7 +315,7 @@ endif
 ifeq ($(USE_VERBOSE_COMPILE),yes)
 	$(BIN) $< $@
 else
-	@echo Creating $@
+	@echo Creating .bin file $@
 	@$(BIN) $< $@
 endif
 
