@@ -2,7 +2,7 @@
 
 The template project for a quick start with STM32 microcontroller using CMSIS and FReeRTOS. Use this template for rapid prototyping and debugging firmware on Cortex-M0 microcontrollers. Note: This project forked from [this](https://github.com/WoodyWoodsta/STM32F0-freeRTOS-CMSIS) repo.
 
-## Project features
+## Project features points
 ### STM32F0 microcontroller peripherals
 
 |                        |    STM32F030C6    |    STM32F051R8    |    STM32F072RB    |         STM32G0B1CB        |
@@ -72,7 +72,7 @@ Sections defines how different parts of the program are mapped to the memory reg
   - `.bss`: Contains uninitialized global and static variables.
 
 ### CMSIS
-TODO
+This project contains a legacy version of the [CMSIS 4](https://github.com/ARM-software/CMSIS_4) Standard Interface Library, which supports Cortex-M0, -M0+. It will be replaced by version [CMSIS 5](https://github.com/STMicroelectronics/cmsis-device-f0/tree/v2.3.7), which includes updated macros for register declarations and bit definitions, updated data structures and address mapping for peripherals, and support for Cortex-M23 and Cortex-M33.
 
 ### FreeRTOS
 TODO
