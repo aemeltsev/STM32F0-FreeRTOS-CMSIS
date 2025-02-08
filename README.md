@@ -85,7 +85,7 @@ The repository contains the FreeRTOS kernel version 7.6 and can be replaced with
 More about FreeRTOS see in this repo [FreeRTOS Kernel Book](https://github.com/FreeRTOS/FreeRTOS-Kernel-Book).
 
 ### OpenOCD
-OpenOCD (Open On-Chip Debugger) is open-source software that interfaces with a hardware debugger's JTAG port. OpenOCD provides debugging and in-system programming for embedded target devices. Commonly, OpenOCD is paired with GDB (GNU Debugger) to provide a rich environment for debugging embedded applications. The debugger is capable of setting breakpoints, examining memory, and stepping through code execution, enabling precise control over what is happening on the device. For more info about openocd see [docs](https://openocd.org/pages/documentation.html).
+OpenOCD (Open On-Chip Debugger) is open-source software that interfaces with a hardware debugger's JTAG port. OpenOCD provides debugging and in-system programming for embedded target devices. Commonly, OpenOCD is paired with GDB (GNU Debugger) to provide a rich environment for debugging embedded applications. The debugger is capable of setting breakpoints, examining memory, and stepping through code execution, enabling precise control over what is happening on the device. For more info about openocd see [docs](https://openocd.org/pages/documentation.html), and on this guide series [OpenOCD: user guide, first](https://microsin.net/programming/arm/openocd-manual-part1.html), [OpenOCD: user guide, second](https://microsin.net/programming/ARM/openocd-manual-part2.html), [OpenOCD: user guide, third](https://microsin.net/programming/ARM/openocd-manual-part3.html).
 
 Install under Ubuntu 22.04 and use it:
 ```
@@ -117,6 +117,7 @@ halt; flash info 0
 halt; dump_image flashdump.bin 0x00000000 0xF90600
 ```
 For Win32 here is the prebuild binary can be downloaded from: https://gnutoolchains.com/arm-eabi/openocd/
+
 
 ### Debug
 TODO
