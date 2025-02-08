@@ -75,7 +75,13 @@ Sections defines how different parts of the program are mapped to the memory reg
 This project contains a legacy version of the Standard Interface Library - [CMSIS 4](https://github.com/ARM-software/CMSIS_4), which supports Cortex-M0, -M0+. It will be replaced by version [CMSIS 5](https://github.com/STMicroelectronics/cmsis-device-f0/tree/v2.3.7), which includes updated macros for register declarations and bit definitions, updated data structures and address mapping for peripherals, and support for Cortex-M23 and Cortex-M33.
 
 ### FreeRTOS
-TODO
+The repository contains the FreeRTOS kernel version 7.6 and can be replaced with a newer version of the FreeRTOS kernel version 11.0.0 of the functions suitable for Cortex-M0, M0+, M23 are support for the corePKCS11 and WolfSSL cryptography libraries as an add-on from FreeRTOS-Plus. Examples of projects can be found [here](https://github.com/FreeRTOS/FreeRTOS/tree/main/FreeRTOS-Plus/Demo) and more details about PKCS (Public-Key Cryptography Standards) [here](https://habr.com/en/companies/aktiv-company/articles/544748/) for beginners, about WolfSSL [here](https://www.wolfssl.com/docs/). The difference and updates to the kernel in the 7.6 and 11.0 releases can be estimated - [ FreeRTOS-Kernel v11.0](https://github.com/FreeRTOS/FreeRTOS-Kernel) and [Changes between V7.5.3 and V7.6.0 released](https://www.freertos.org/Documentation/04-Roadmap-and-release-note/02-Release-notes/00-Release-history#changes-between-v753-and-v760-released-18th-november-2013)
+
+  - The root of this repository contains the three files that are common to every port - list.c, queue.c and tasks.c. The kernel is contained within these three files. croutine.c implements the optional co-routine functionality - which is normally only used on very memory limited systems.
+  - The `./portable` directory contains the files that are specific to a particular microcontroller and/or compiler. See the readme file in the `./portable` directory for more information.
+  - The `./include` directory contains the real time kernel header files.
+  - The `./template_configuration` directory contains a sample `FreeRTOSConfig.h` to help jumpstart a new project. See the [FreeRTOSConfig](https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/examples/template_configuration/FreeRTOSConfig.h).h file for instructions. 
+
 
 ### OpenOCD
 TODO
