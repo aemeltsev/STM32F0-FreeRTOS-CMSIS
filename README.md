@@ -81,10 +81,11 @@ The repository contains the FreeRTOS kernel version 7.6 and can be replaced with
   - The `./portable` directory contains the files that are specific to a particular microcontroller and/or compiler. See the readme file in the `./portable` directory for more information.
   - The `./include` directory contains the real time kernel header files.
   - The `./template_configuration` directory contains a sample `FreeRTOSConfig.h` to help jumpstart a new project. See the [FreeRTOSConfig](https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/examples/template_configuration/FreeRTOSConfig.h).h file for instructions. In this repo current configuration file contain in `.src/conf`.
+
 More about FreeRTOS see in this repo [FreeRTOS Kernel Book](https://github.com/FreeRTOS/FreeRTOS-Kernel-Book).
 
 ### OpenOCD
-OpenOCD (Open On-Chip Debugger) is open-source software that interfaces with a hardware debugger's JTAG port. OpenOCD provides debugging and in-system programming for embedded target devices. Commonly, OpenOCD is paired with GDB (GNU Debugger) to provide a rich environment for debugging embedded applications. The debugger is capable of setting breakpoints, examining memory, and stepping through code execution, enabling precise control over what is happening on the device.
+OpenOCD (Open On-Chip Debugger) is open-source software that interfaces with a hardware debugger's JTAG port. OpenOCD provides debugging and in-system programming for embedded target devices. Commonly, OpenOCD is paired with GDB (GNU Debugger) to provide a rich environment for debugging embedded applications. The debugger is capable of setting breakpoints, examining memory, and stepping through code execution, enabling precise control over what is happening on the device. For more info about openocd see [docs](https://openocd.org/pages/documentation.html).
 
 Install under Ubuntu 22.04 and use it:
 ```
