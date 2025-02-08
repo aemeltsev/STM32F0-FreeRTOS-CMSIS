@@ -84,7 +84,38 @@ The repository contains the FreeRTOS kernel version 7.6 and can be replaced with
 More about FreeRTOS see in this repo [FreeRTOS Kernel Book](https://github.com/FreeRTOS/FreeRTOS-Kernel-Book).
 
 ### OpenOCD
-TODO
+OpenOCD (Open On-Chip Debugger) is open-source software that interfaces with a hardware debugger's JTAG port. OpenOCD provides debugging and in-system programming for embedded target devices. Commonly, OpenOCD is paired with GDB (GNU Debugger) to provide a rich environment for debugging embedded applications. The debugger is capable of setting breakpoints, examining memory, and stepping through code execution, enabling precise control over what is happening on the device.
+
+Install under Ubuntu 22.04 and use it:
+```
+sudo apt-get install openocd
+
+# Start OpenOCD with JLink debugger and STM32 target configuration
+openocd -f interface/stlink-v2-1.cfg -c "transport select hla_swd" -f target/stm32l0.cfg
+
+# Connect to OpenOCD via telnet
+telnet 127.0.0.1 4444
+
+#Connect to OpenOCD via gdb
+gdb
+(gdb) target extended-remote localhost:3333
+(gdb) monitor reset halt
+(gdb) load
+(gdb) continue
+
+# Halt the CPU
+halt
+
+# Reset and initialize the CPU
+reset init
+
+# Get flash memory information
+halt; flash info 0
+
+# Dump the flash memory to a file
+halt; dump_image flashdump.bin 0x00000000 0xF90600
+```
+For Win32 here is the prebuild binary can be downloaded from: https://gnutoolchains.com/arm-eabi/openocd/
 
 ### Debug
 TODO
