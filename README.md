@@ -80,8 +80,8 @@ The repository contains the FreeRTOS kernel version 7.6 and can be replaced with
   - The root of this repository contains the three files that are common to every port - list.c, queue.c and tasks.c. The kernel is contained within these three files. croutine.c implements the optional co-routine functionality - which is normally only used on very memory limited systems.
   - The `./portable` directory contains the files that are specific to a particular microcontroller and/or compiler. See the readme file in the `./portable` directory for more information.
   - The `./include` directory contains the real time kernel header files.
-  - The `./template_configuration` directory contains a sample `FreeRTOSConfig.h` to help jumpstart a new project. See the [FreeRTOSConfig](https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/examples/template_configuration/FreeRTOSConfig.h).h file for instructions. 
-
+  - The `./template_configuration` directory contains a sample `FreeRTOSConfig.h` to help jumpstart a new project. See the [FreeRTOSConfig](https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/examples/template_configuration/FreeRTOSConfig.h).h file for instructions. In this repo current configuration file contain in `.src/conf`.
+More about FreeRTOS see in this repo [FreeRTOS Kernel Book](https://github.com/FreeRTOS/FreeRTOS-Kernel-Book).
 
 ### OpenOCD
 TODO
