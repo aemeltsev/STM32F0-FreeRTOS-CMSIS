@@ -1,3 +1,12 @@
+/**
+ *******************************************
+ * @file    ringbuff.h
+ * @author  Anton Emeltsev
+ * @version 1.0
+ * @date	10-February-2020
+ * @brief   This header file part of Cortex-M0, M0+ lib
+ *******************************************
+ */
 #include "ringbuff.h"
 
 BUFFER_STATUS buffer_init(ringbuffer_t *rb,  uint8_t * data, uint8_t data_clear, uint16_t size) 
@@ -21,7 +30,6 @@ BUFFER_STATUS buffer_init(ringbuffer_t *rb,  uint8_t * data, uint8_t data_clear,
 BUFFER_STATUS buffer_clear(ringbuffer_t *rb)
 {
     if (rb != NULL) {
-        //memset((uint8_t*)rb->data, 0, rb->size);
         rb->data = NULL;
         rb->size = 0;
         rb->head = 0;
@@ -78,7 +86,7 @@ BUFFER_STATUS buffer_back(ringbuffer_t *rb)
     return STATUS_ERR;
 }
 
-// Функция для записи байта в буфер
+/* Функция для записи байта в буфер при записи сдвигается индекс head */
 BUFFER_STATUS buffer_put(ringbuffer_t *rb, uint8_t byte)
 {
     if (rb == NULL) {
@@ -129,7 +137,8 @@ BUFFER_STATUS buffer_put_string(ringbuffer_t *rb, uint8_t *string)
 }
 
 /*
-int main() {
+int main()
+{
     // Определяем буфер фиксированного размера
     uint8_t buffer_data[BUFFER_SIZE];
     ringbuffer_t buffer;
@@ -158,6 +167,12 @@ int main() {
         printf("Прочитан байт: %u\n", byte);
     }
 
+    if (buffer_clear(&buffer) != STATUS_OK) {
+        printf("Ошибка очистки буфера\n");
+        return -1;
+    }
+    if (buffer.data == NULL && buffer.size == 0) {
+        printf("Буфер очищен\n");
+    }
     return 0;
-}
 */

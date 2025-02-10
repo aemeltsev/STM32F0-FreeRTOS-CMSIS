@@ -1,3 +1,12 @@
+/**
+ *******************************************
+ * @file    ringbuff.h
+ * @author  Anton Emeltsev
+ * @version 1.0
+ * @date	10-February-2020
+ * @brief   This header file part of Cortex-M0, M0+ lib
+ *******************************************
+ */
 #ifndef RINGBUFF_H
 #define RINGBUFF_H
 
@@ -13,8 +22,8 @@
 typedef enum BUFFER_STATUS {
     STATUS_OK,        // Ok
     STATUS_ERR,       // Error
-    STATUS_OVERFLOW, // Переполнение буфера
-    STATUS_EMPTY,
+    STATUS_OVERFLOW,  // Buffer is overflow
+    STATUS_EMPTY,     // Buffer is empty
 } BUFFER_STATUS;
 
 typedef struct ringbuffer {
