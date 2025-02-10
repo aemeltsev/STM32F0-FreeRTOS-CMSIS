@@ -1,3 +1,12 @@
+/**
+ *******************************************
+ * @file    util.h
+ * @author  Anton Emeltsev
+ * @version 1.0
+ * @date	5-February-2025
+ * @brief   This header file part of Cortex-M0, M0+ lib
+ *******************************************
+ */
 #include <stdint.h>
 #include <stdlib.h>
 
