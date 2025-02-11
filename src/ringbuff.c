@@ -136,7 +136,48 @@ BUFFER_STATUS buffer_put_string(ringbuffer_t *rb, uint8_t *string)
     return STATUS_OK;
 }
 
-/*
+bool buffer_find_byte(ringbuffer_t *rb, uint8_t byte)
+{
+    if (rb != NULL) {
+        if (!buffer_empty(rb)) {
+            uint8_t tail = rb->tail;
+            uint8_t count = buffer_count(rb);
+
+            for (uint8_t i = 0; i < count; i++) {
+                uint8_t data = rb->data[tail % rb->size];
+
+                if (data == byte) {
+                    return true;
+                }
+                tail++;
+            }
+        } else{
+            return false;
+        }
+    }
+    return false;
+}
+
+uint16_t buffer_get_token(ringbuffer_t *rb, uint8_t * str, uint16_t len, uint8_t term)
+{
+    if (rb != NULL && len != 0) {
+        memset((void *)str, 0, len);
+
+        if (buffer_find_byte(rb, term) && str) {
+            uint8_t c = 0;
+            uint8_t i = 0;
+            while ((buffer_get(rb, &c)) == STATUS_OK && c != term && i < len) {
+                str[i] = c;
+                i++;
+            }
+            return i;
+        }
+        return 0;
+    }
+    return 0;
+}
+
+#if 0
 int main()
 {
     // Определяем буфер фиксированного размера
@@ -157,6 +198,16 @@ int main()
         }
     }
 
+    // Ищем байт 35 в буфере
+    uint8_t byte_to_find = 35;
+    bool found = buffer_scan_byte(&buffer, byte_to_find);
+
+    if (found) {
+        printf("Байт %u найден в буфере.\n", byte_to_find);
+    } else {
+        printf("Байт %u не найден в буфере.\n", byte_to_find);
+    }
+
     // Читаем данные из буфера
     uint8_t byte;
     for (uint8_t i = 0; i < 50; i++) {
@@ -175,4 +226,4 @@ int main()
         printf("Буфер очищен\n");
     }
     return 0;
-*/
+#endif
