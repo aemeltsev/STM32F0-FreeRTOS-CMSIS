@@ -1,6 +1,14 @@
 # STM32F0-FreeRTOS-CMSIS
 
-The template project for a quick start with STM32 microcontroller using CMSIS and FReeRTOS. Use this template for rapid prototyping and debugging firmware on Cortex-M0 microcontrollers. Note: This project forked from [this](https://github.com/WoodyWoodsta/STM32F0-freeRTOS-CMSIS) repo.
+This repository is a boilerplate project designed for the fastest possible deployment of applications based on the STM32F0 (Cortex-M0) microcontroller family.
+The main philosophy is that the project is based on pure CMSIS. In my opinion, this provides complete control over peripheral registers and eliminates redundant HAL/LL library code.
+The project integrates the FreeRTOS kernel, allowing you to instantly transition from simple while(1) loops to a full-fledged real-time operating system with task sharing, queues, and semaphores.
+A custom Makefile allows you to build the firmware in any environment (Linux, Windows/MSYS2), automate version numbering, and save build history in an archive.
+
+Perfect for a quick start. You don't need to spend a lot of time configuring linker scripts (.ld) and startup files (.s)—everything is already configured for the STM32F030. Optimized compiler flags and automatic generation of dump files (.dmp) and listings (.lst) allow for on-the-fly analysis of assembly code and memory usage.
+Thanks to the console build interface, the project easily integrates into automated testing systems (GitHub Actions, etc.).
+
+The project is a fork of [this](https://github.com/WoodyWoodsta/STM32F0-freeRTOS-CMSIS) repository, reworked to improve the build system, support modern displays (OLED SSD1306), and provide extended compilation logging.
 
 ## Project features points
 ### STM32F0 microcontroller peripherals
