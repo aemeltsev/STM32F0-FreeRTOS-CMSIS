@@ -33,12 +33,21 @@ The project is a fork of [this](https://github.com/WoodyWoodsta/STM32F0-freeRTOS
 | Comparator             |         -         |         2         |         2         |              3             |
 | CPU Freq. Max.         |       48MHz       |       48MHz       |       48MHz       |            64MHz           |
 
+### Features
+Each model in this template is selected for specific use cases:
+
+The [STM32F030C6]() (Value Line) is the most affordable entry into the world of 32-bit systems. It's ideal for replacing 8-bit AVRs (like Arduino). It contains only 32 KB of Flash memory. It requires rigorous code optimization (the `--gc-sections` flags are useful here). It's suitable for use in simple sensors, lighting controllers, and I2C nodes.
+
+The [STM32F051R8]() (Access Line) features a 12-bit DAC and two analog comparators. It supports a larger number of timers (including one 32-bit timer), allowing for generating very precise PWM signals or measuring long intervals. It's suitable for controlling simple motors and as the main controller in budget-level laboratory instruments.
+
+The [STM32F072RB]() (USB/CAN Crystal-less) supports USB 2.0 Full Speed ​​without an external crystal oscillator (saving board space) and a CAN bus. It contains 128 KB of Flash, allowing for the smooth use of FreeRTOS with heavy protocol stacks. It can be used to implement USB-HID devices (keyboards, joysticks) and automotive diagnostic adapters (OBD-II).
+
+The [STM32G0B1CB]() (Next Gen) utilizes a next-generation architecture. It operates at 64 MHz (versus 48 MHz on the F0) and has a whopping 144 KB of SRAM. It supports Low-power Timers, LPUART, UCPD (USB-C Power Delivery), [FDCAN - 8x faster than standard CAN](https://habr.com/en/articles/546282/), and a stable internal reference voltage source at the hardware level. High-speed data transfer, powered devices via USB-C, and complex systems with graphic displays are supported.
+
 ### Documentation
 For a more in-depth exploration of the peripherals, use the official STMicroelectronics documentation. Datasheet / Reference Manual for escription of registers and electrical characteristics. And Errata for known hardware errors and workarounds.
 
-This project retains partial compatibility with the STM32G0, which offers enhanced functionality: Low-power Timers, LPUART, UCPD (USB-C Power Delivery), [FDCAN](https://habr.com/en/articles/546282/), and a stable internal reference voltage source.
-
-###  Testing and Debug Boards (Hardware Tests)
+### Testing and Debug Boards (Hardware Tests)
 This template has been successfully tested and works stably on the following configurations:
 
   - ✅ STM32F030C8 — Main platform (current project focus).
