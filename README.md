@@ -33,19 +33,19 @@ The project is a fork of [this](https://github.com/WoodyWoodsta/STM32F0-freeRTOS
 | Comparator             |         -         |         2         |         2         |              3             |
 | CPU Freq. Max.         |       48MHz       |       48MHz       |       48MHz       |            64MHz           |
 
-### :books: Documentation
+### Documentation
 For a more in-depth exploration of the peripherals, use the official STMicroelectronics documentation. Datasheet / Reference Manual for escription of registers and electrical characteristics. And Errata for known hardware errors and workarounds.
 
 This project retains partial compatibility with the STM32G0, which offers enhanced functionality: Low-power Timers, LPUART, UCPD (USB-C Power Delivery), [FDCAN](https://habr.com/en/articles/546282/), and a stable internal reference voltage source.
 
-### :test_tube: Testing and Debug Boards (Hardware Tests)
+###  Testing and Debug Boards (Hardware Tests)
 This template has been successfully tested and works stably on the following configurations:
 
-✅ STM32F030C8 — Main platform (current project focus).
-✅ STM32F030C6 — Popular "Blue Pill" board (requires Flash size control < 32KB).
-✅ STM32F051R8 — Official [STM32F0DISCOVERY](https://www.st.com/en/evaluation-tools/stm32f0discovery.html) board.
-✅ STM32F072RB — [NUCLEO-F072RB](https://www.st.com/en/evaluation-tools/nucleo-f072rb.html) board.
-⚠️ STM32G0B1CB — In the process of integration (Experimental).
+  - ✅ STM32F030C8 — Main platform (current project focus).
+  - ✅ STM32F030C6 — Popular "Blue Pill" board (requires Flash size control < 32KB).
+  - ✅ STM32F051R8 — Official [STM32F0DISCOVERY](https://www.st.com/en/evaluation-tools/stm32f0discovery.html) board.
+  - ✅ STM32F072RB — [NUCLEO-F072RB](https://www.st.com/en/evaluation-tools/nucleo-f072rb.html) board.
+  - ⚠️ STM32G0B1CB — In the process of integration (Experimental).
 
 ### Makefile
 Specify the type of microcontroller
