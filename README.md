@@ -56,23 +56,28 @@ This template has been successfully tested and works stably on the following con
   - ✅ STM32F072RB — [NUCLEO-F072RB](https://www.st.com/en/evaluation-tools/nucleo-f072rb.html) board.
   - ⚠️ STM32G0B1CB — In the process of integration (Experimental).
 
-### Makefile
-Specify the type of microcontroller
+
+## Configuration and Architecture (Target Hardware)
+This project is designed for use with STM32F0 series microcontrollers with an ARM Cortex-M0 core.
+
+## Target Chip Configuration
+All key parameters are set at the beginning of the Makefile. To change the model, simply update the following variables:
 
 ```
 MCU_FAMILY        = STM32F0xx
-MCU_MODEL_FAMILY  = STM32F030x6
-MCU_MODEL         = STM32F030C6
+MCU_MODEL_FAMILY  = STM32F030x6   # Family (affects memory limits)
+MCU_MODEL         = STM32F030C6   # Specific case
 ```
 
-Of course, this project uses arm cortex-m0 microcontrollers arhitecture libraries. GNU Arm Embedded Toolchain is required to compile c, c++ and assembler files.
+## Environment Requirements (Toolchain)
+The GNU Arm Embedded Toolchain is required to compile C, C++, and assembly files. Installation (Linux/Ubuntu):
 
 ```
 sudo apt update
-sudo apt install gcc-arm-none-eabi
+sudo apt install gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi
 ```
 
-Or you can read about specific installation details in [this](https://askubuntu.com/questions/1243252/how-to-install-arm-none-eabi-gdb-on-ubuntu-20-04-lts-focal-fossa) topic, or use script.
+You can read about specific installation details in [this](https://askubuntu.com/questions/1243252/how-to-install-arm-none-eabi-gdb-on-ubuntu-20-04-lts-focal-fossa) topic, or use script.
 Check if it works:
 
 ```
@@ -81,16 +86,24 @@ arm-none-eabi-g++ --version
 arm-none-eabi-gdb --version
 arm-none-eabi-size --version
 ```
+  * arm-none-eabi-gcc - C compiller.
+  * arm-none-eabi-g++ - C++ compiller.
+  * arm-none-eabi-size - memory using analysis.
 
-During compilation, debug information is created, `-O2` optimization, flags for reducing the size of the generated code, THUMB instructions etc. Warning flags are enabled `-Wall` `-Wextra` `-Wstrict-prototypes`.
-The linker parameters have the `USE_LINK_GC` garbage collection and `USE_LTO` link time optimization flags set. The linker uses a script that describes the memory allocation map. Entry Point of the program, typically the reset handler function. Memory Regions, available in the microcontroller:
-  - `FLASH`: Read-only memory where the program code and constants are stored.
-  - `RAM`: Read-write memory used for variables and stack.
+## Build Process Features
+The build system automatically manages optimization and resources:
+  * Optimization (`-O2` + `-flto`) - size and speed optimization are enabled. The LTO (Link Time Optimization) flag optimizes code at the junction of different modules, maximizing firmware compression.
+  * Smart Linking (`--gc-sections`) - the linker automatically removes unused code (functions that have never been called), which is critical for chips with small Flash memory (32 KB).
+  * Diagnostics (`-Wall` `-Wextra`) - extended warning output is enabled to ensure high code quality.
+  * Log Generation - each build creates a report in the archive folder with memory analysis results and the Git version.
 
-Sections defines how different parts of the program are mapped to the memory regions.
-  - `.text`: Contains the program code and read-only data.
-  - `.data`: Contains initialized global and static variables.
-  - `.bss`: Contains uninitialized global and static variables.
+## Memory Map
+The linking process uses a special script (.ld) that distributes data by region:
+| Section | Memory Type | Description |
+|---|---|---|
+| .text | FLASH | Program code, interrupt vector tables, and constants. |
+| .data | RAM | Global initialized variables (copied from Flash at startup). |
+| .bss | RAM | Global uninitialized variables (cleared at startup). |
 
 ### CMSIS
 This project contains a legacy version of the Standard Interface Library - [CMSIS 4](https://github.com/ARM-software/CMSIS_4), which supports Cortex-M0, -M0+. It will be replaced by version [CMSIS 5](https://github.com/STMicroelectronics/cmsis-device-f0/tree/v2.3.7), which includes updated macros for register declarations and bit definitions, updated data structures and address mapping for peripherals, and support for Cortex-M23 and Cortex-M33.
