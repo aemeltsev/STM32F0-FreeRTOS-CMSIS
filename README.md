@@ -109,14 +109,25 @@ The linking process uses a special script (.ld) that distributes data by region:
 In the current version, the project has been fully migrated to [CMSIS version 5.x](https://github.com/STMicroelectronics/cmsis-device-f0/tree/v2.3.7) from [CMSIS 4](https://github.com/ARM-software/CMSIS_4). Version 5.x includes expanded support for classic Cortex-M0/M0+ cores, and the library now fully supports modern Cortex-M23 and Cortex-M33 cores (TrustZone and security extensions). Updated macros are used for register declarations and bitfield definitions (`_Pos` / `_Msk`). Peripheral data and address maps have been aligned with the latest ARM specifications, eliminating alignment and memory access errors. Thanks to built-in macros (e.g., `__STATIC_INLINE`, `__PACKED_STRUCT`), the project builds correctly in various environments: GCC (Arm Embedded Toolchain), Keil (Arm Compiler 6), and IAR.
 
 ### FreeRTOS
-The repository contains the FreeRTOS kernel version 7.6 and can be replaced with a newer version of the FreeRTOS kernel 11.0.0 of the functions suitable for Cortex-M0, M0+, M23 are support for the corePKCS11 and WolfSSL cryptography libraries as an add-on from FreeRTOS-Plus. Examples of projects can be found [here](https://github.com/FreeRTOS/FreeRTOS/tree/main/FreeRTOS-Plus/Demo) and more details about PKCS (Public-Key Cryptography Standards) [here](https://habr.com/en/companies/aktiv-company/articles/544748/) for beginners, about WolfSSL [here](https://www.wolfssl.com/docs/). The difference and updates to the kernel in the 7.6 and 11.0 releases can be estimated - [ FreeRTOS-Kernel v11.0](https://github.com/FreeRTOS/FreeRTOS-Kernel) and [Changes between V7.5.3 and V7.6.0 released](https://www.freertos.org/Documentation/04-Roadmap-and-release-note/02-Release-notes/00-Release-history#changes-between-v753-and-v760-released-18th-november-2013)
+This repository uses the FreeRTOS kernel version 10.x. This is a stable branch of the operating system, suitable for commercial and industrial projects. It is actively used as the base for Long Term Support releases. This ensures critical security patches are released without breaking backward compatibility.
+Native support for lightweight interprocess communication primitives (Stream Buffer and Message Buffer) optimized for single-writer, single-reader scenarios (ideal for interrupt-to-task coupling—for example, for quickly transferring data from a UART/DMA interrupt to a processing task).
+Compatible with modern Cortex-M23 and Cortex-M33 (ARMv8-M (10.3+)) microcontrollers with basic TrustZone support.
+Seamless integration of IoT and security libraries ([coreMQTT](https://github.com/FreeRTOS/coreMQTT/blob/main/README.md), [coreHTTP](https://github.com/FreeRTOS/coreHTTP), [mbedTLS](https://github.com/Mbed-TLS/mbedtls))(FreeRTOS-Plus).
+Examples of projects can be found [here](https://github.com/FreeRTOS/FreeRTOS/tree/main/FreeRTOS-Plus/Demo) and more details about PKCS (Public-Key Cryptography Standards) [here](https://habr.com/en/companies/aktiv-company/articles/544748/) for beginners, about WolfSSL [here](https://www.wolfssl.com/docs/).
 
-  - The root of this repository contains the three files that are common to every port - list.c, queue.c and tasks.c. The kernel is contained within these three files. croutine.c implements the optional co-routine functionality - which is normally only used on very memory limited systems.
-  - The `./portable` directory contains the files that are specific to a particular microcontroller and/or compiler. See the readme file in the `./portable` directory for more information.
-  - The `./include` directory contains the real time kernel header files.
-  - The `./template_configuration` directory contains a sample `FreeRTOSConfig.h` to help jumpstart a new project. See the [FreeRTOSConfig](https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/examples/template_configuration/FreeRTOSConfig.h).h file for instructions. In this repo current configuration file contain in `.src/conf`.
+The core functionality of FreeRTOS is concentrated in the root directory and divided into the following modules:
+* `list.c`, `queue.c`, `tasks.c` - basic scheduler, list, and interprocess communication functionality (queues, semaphores).
+* `timers.c` - software support for timers.
+* `stream_buffer.c` - implementation of stream and ring buffers.
+* `croutine.c` - [Deprecated] Optional co-routine functionality for systems with extremely low RAM (almost never used in modern projects).
 
-More about FreeRTOS see in this repo [FreeRTOS Kernel Book](https://github.com/FreeRTOS/FreeRTOS-Kernel-Book).
+Repository file organization:
+* `./portable` - hardware abstraction layer (HAL) for specific microcontrollers and compilers (ports). Refer to the README inside the folder to select the port for your chip.
+* `./include` - kernel header files.
+* `./src/conf` - current project configuration. The [FreeRTOSConfig.h](https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/examples/template_configuration/FreeRTOSConfig.h) file in this directory is preconfigured for quick start.
+* `./template_configuration` - reference configuration templates for other architectures.
+
+For more information about FreeRTOS, see this repo [FreeRTOS Kernel Book](https://github.com/FreeRTOS/FreeRTOS-Kernel-Book)
 
 ### OpenOCD
 OpenOCD (Open On-Chip Debugger) is open-source software that interfaces with a hardware debugger's JTAG port. OpenOCD provides debugging and in-system programming for embedded target devices. Commonly, OpenOCD is paired with GDB (GNU Debugger) to provide a rich environment for debugging embedded applications. The debugger is capable of setting breakpoints, examining memory, and stepping through code execution, enabling precise control over what is happening on the device. For more info about openocd see [docs](https://openocd.org/pages/documentation.html), and on this guide series [OpenOCD: user guide, first](https://microsin.net/programming/arm/openocd-manual-part1.html), [OpenOCD: user guide, second](https://microsin.net/programming/ARM/openocd-manual-part2.html), [OpenOCD: user guide, third](https://microsin.net/programming/ARM/openocd-manual-part3.html).
