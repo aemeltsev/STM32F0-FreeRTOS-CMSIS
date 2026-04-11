@@ -190,7 +190,7 @@ The following OpenOCD commands can be entered within a Telnet session:
 * `flash info 0` - get information about flash memory.
 * `dump_image flashdump.bin 0x08000000 0x10000` - dump flash memory to a file (specify your starting address and size).
 
-### Debug
+### Debug(Windows & MSYS2)
 For project debugging, recommend using the VS Code editor with the Cortex-Debug extensions. This allows to instantly view the state of registers, peripherals, and calls directly in the graphical interface.
 
 The following must be installed:
