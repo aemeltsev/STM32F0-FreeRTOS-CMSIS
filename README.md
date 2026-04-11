@@ -130,39 +130,65 @@ Repository file organization:
 For more information about FreeRTOS, see this repo [FreeRTOS Kernel Book](https://github.com/FreeRTOS/FreeRTOS-Kernel-Book)
 
 ### OpenOCD
-OpenOCD (Open On-Chip Debugger) is open-source software that interfaces with a hardware debugger's JTAG port. OpenOCD provides debugging and in-system programming for embedded target devices. Commonly, OpenOCD is paired with GDB (GNU Debugger) to provide a rich environment for debugging embedded applications. The debugger is capable of setting breakpoints, examining memory, and stepping through code execution, enabling precise control over what is happening on the device. For more info about openocd see [docs](https://openocd.org/pages/documentation.html), and on this guide series [OpenOCD: user guide, first](https://microsin.net/programming/arm/openocd-manual-part1.html), [OpenOCD: user guide, second](https://microsin.net/programming/ARM/openocd-manual-part2.html), [OpenOCD: user guide, third](https://microsin.net/programming/ARM/openocd-manual-part3.html).
+OpenOCD (Open On-Chip Debugger) is open-source software that communicates with a hardware programmer/debugger via JTAG or SWD interfaces [2]. It enables in-circuit debugging and programming of embedded systems [2].
 
-Install under Ubuntu 22.04 and use it:
-```
+OpenOCD is typically used in conjunction with GDB (GNU Debugger) [2]. This allows for setting breakpoints, viewing memory, and stepping through code, providing full control over the device [2].
+
+  * Official documentation: [OpenOCD Documentation](https://openocd.org)
+  * Useful guides in Russian: [Part 1](https://microsin.net), [Part 2](https://microsin.net), [Part 3](https://microsin.net).
+
+Installing Ubuntu using 22.04 as an example
+
+```bash
+sudo apt-get update
 sudo apt-get install openocd
+```
 
-# Start OpenOCD with JLink debugger and STM32 target configuration
-openocd -f interface/stlink-v2-1.cfg -c "transport select hla_swd" -f target/stm32l0.cfg
+Example runtime for the ST-Link programmer and the STM32L0 target microcontroller:
+```bash
+openocd -f interface/stlink.cfg -c "transport select hla_swd" -f target/stm32l0.cfg
+```
 
-# Connect to OpenOCD via telnet
-telnet 127.0.0.1 4444
+In the MSYS2 environment (UCRT64 or MINGW64 environments are recommended), OpenOCD is installed using the standard pacman package manager. Open the MSYS2 terminal and install the package
+```bash
+# Update package databases
+pacman -Sy
 
-#Connect to OpenOCD via gdb
-gdb
+# Installation for the 64-bit UCRT environment
+pacman -S mingw-w64-ucrt-x86_64-openocd
+
+# OR for the classic MinGW64 environment:
+# pacman -S mingw-w64-x86_64-openocd
+```
+Driver setup (Important for Windows) - To ensure Windows and OpenOCD work correctly with the programmer (ST-Link, J-Link, or CMSIS-DAP), download Zadig. Connect the programmer, find it in the Zadig list, and replace the current driver with WinUSB.
+
+Launching OpenOCD is similar to the Linux version, but all paths use the forward slash `/`:
+```bash
+openocd -f interface/stlink.cfg -c "transport select hla_swd" -f target/stm32l0.cfg
+```
+
+💡 Note: If you're not using MSYS2, you can download precompiled OpenOCD binaries for Windows from the Sysprogs Gnutoolchains website.
+
+Once OpenOCD has launched and successfully connected to the chip, you can connect to it from a separate terminal window in one of two ways:
+
+  1. Via GDB (for flashing and step-by-step debugging) - Launch a debugger (e.g., arm-none-eabi-gdb) and run:
+```gdb
 (gdb) target extended-remote localhost:3333
 (gdb) monitor reset halt
 (gdb) load
 (gdb) continue
-
-# Halt the CPU
-halt
-
-# Reset and initialize the CPU
-reset init
-
-# Get flash memory information
-halt; flash info 0
-
-# Dump the flash memory to a file
-halt; dump_image flashdump.bin 0x00000000 0xF90600
 ```
-For Win32 here is the prebuild binary can be downloaded from: https://gnutoolchains.com/arm-eabi/openocd/
 
+  2. Via Telnet (for low-level chip control)
+```bash
+# For MSYS2, first install Telnet with the command: pacman -S inetutils
+telnet 127.0.0.1 4444
+```
+The following OpenOCD commands can be entered within a Telnet session:
+* `halt` - stop the processor.
+* `reset init` - reset and initialize the processor.
+* `flash info 0` - get information about flash memory.
+* `dump_image flashdump.bin 0x08000000 0x10000` - dump flash memory to a file (specify your starting address and size).
 
 ### Debug
 TODO
