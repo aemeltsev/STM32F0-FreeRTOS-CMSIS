@@ -191,4 +191,43 @@ The following OpenOCD commands can be entered within a Telnet session:
 * `dump_image flashdump.bin 0x08000000 0x10000` - dump flash memory to a file (specify your starting address and size).
 
 ### Debug
-TODO
+For project debugging, recommend using the VS Code editor with the Cortex-Debug extensions. This allows to instantly view the state of registers, peripherals, and calls directly in the graphical interface.
+
+The following must be installed:
+  * `Cortex-Debug` extension for VS Code - for managing ARM debugging processes.
+  * `C/C++ Extension Pack` - for syntax highlighting and tooltips.
+
+And also installed `openocd` and the `gdb` debugger for ARM in the MSYS2 (UCRT64/MINGW64) session.
+
+VS Code configuration (`.vscode/launch.json`) - create `.vscode` folder into the root of project and add the `launch.json` file:
+
+```json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug (OpenOCD)",
+            "cwd": "${workspaceFolder}",
+            "executable": "${workspaceFolder}/build/your_firmware.elf", // path to the `.elf` file
+            "request": "launch",
+            "type": "cortex-debug",
+            "servertype": "openocd",
+            "interface": "swd",
+            "runToEntryPoint": "main",
+			// Path to the OpenOCD configuration files
+            "configFiles": [
+                "interface/stlink.cfg",
+                "target/stm32l0.cfg"
+            ],
+			// Support to FreeRTOS task relation into call panel of GDB
+            "rtos": "FreeRTOS" 
+        }
+    ]
+}
+```
+
+Debugging process
+  * Opens in VS Code.
+  * Go to the Run and Debug tab (Ctrl + Shift + D).
+  * Debug (OpenOCD) configuration in the drop-down list at the top.
+  * F5 - the environment run the OpenOCD in the background, connects via GDB, flashes the controller, and stops on the main() function.
