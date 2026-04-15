@@ -26,12 +26,12 @@ void button_to_led(uint8_t *button_state)
     if (*button_state == 0) // Button is pressed
     {
         delay_ms(5000); // Wait for 5 seconds before toggling the LED again
-        GPIOC->BSRRL |= GPIO_BSRR_BS_13; // Set GPIOC Pin 13 (turn on the LED)
+        GPIOC->BSRR |= GPIO_BSRR_BS_13; // Set GPIOC Pin 13 (turn on the LED)
     }
     else // Button is released
     {
         delay_ms(5000); // Wait for 5 seconds before toggling the LED again
-        GPIOC->BSRRH |= GPIO_BSRR_BR_13; // Reset GPIOC Pin 13 (turn off the LED)
+        GPIOC->BSRR |= GPIO_BSRR_BR_13; // Reset GPIOC Pin 13 (turn off the LED)
     }
 }
 
@@ -94,27 +94,27 @@ void buttons_bin_sum_to_led(uint8_t x_a, uint8_t x_b, uint8_t x_c, uint8_t x_d,\
     dec_to_bin(sum, out);
     // 1st rank
     if (out[0] == 1) {
-        GPIOA->BSRRL |= GPIO_BSRR_BS_8; // Reset GPIOA Pin 8 (turn off the LED)
+        GPIOA->BSRR |= GPIO_BSRR_BS_8; // Reset GPIOA Pin 8 (turn off the LED)
     } else {
-        GPIOA->BSRRH |= GPIO_BSRR_BR_8; // Reset GPIOA Pin 8 (turn off the LED)
+        GPIOA->BSRR |= GPIO_BSRR_BR_8; // Reset GPIOA Pin 8 (turn off the LED)
     }
     // 2nd rank
     if (out[1] == 1) {
-        GPIOA->BSRRL |= GPIO_BSRR_BS_9; // Reset GPIOA Pin 9 (turn off the LED)
+        GPIOA->BSRR |= GPIO_BSRR_BS_9; // Reset GPIOA Pin 9 (turn off the LED)
     } else {
-        GPIOA->BSRRH |= GPIO_BSRR_BR_9; // Reset GPIOA Pin 9 (turn off the LED)
+        GPIOA->BSRR |= GPIO_BSRR_BR_9; // Reset GPIOA Pin 9 (turn off the LED)
     }
     // 3rd rank
     if (out[2] == 1) {
-        GPIOA->BSRRL |= GPIO_BSRR_BS_10; // Reset GPIOA Pin 10 (turn off the LED)
+        GPIOA->BSRR |= GPIO_BSRR_BS_10; // Reset GPIOA Pin 10 (turn off the LED)
     } else {
-        GPIOA->BSRRH |= GPIO_BSRR_BR_10; // Reset GPIOA Pin 10 (turn off the LED)
+        GPIOA->BSRR |= GPIO_BSRR_BR_10; // Reset GPIOA Pin 10 (turn off the LED)
     }
     // 4th rank
     if (out[3] == 1) {
-        GPIOA->BSRRL |= GPIO_BSRR_BS_11; // Reset GPIOA Pin 11 (turn off the LED)
+        GPIOA->BSRR |= GPIO_BSRR_BS_11; // Reset GPIOA Pin 11 (turn off the LED)
     } else {
-        GPIOA->BSRRH |= GPIO_BSRR_BR_11; // Reset GPIOA Pin 11 (turn off the LED)
+        GPIOA->BSRR |= GPIO_BSRR_BR_11; // Reset GPIOA Pin 11 (turn off the LED)
     }
 }
 
@@ -161,18 +161,18 @@ void buttons_sel_led(void)
     // Select the LED when someone combination buttons is pressed
     if ((GPIOA->IDR & (GPIO_IDR_0) == 1) && (GPIOA->IDR & (GPIO_IDR_1) == 0)) // [1:0] = Pin 2 LED on
     {
-        GPIOA->BSRRL |= GPIO_BSRR_BS_2; // Set GPIOA Pin 2 (turn on the LED)
-        GPIOA->BSRRH |= GPIO_BSRR_BR_3; // Reset GPIOA Pin 2 (turn off the LED)
-        GPIOA->BSRRH |= GPIO_BSRR_BR_4; // Reset GPIOA Pin 3 (turn off the LED)
+        GPIOA->BSRR |= GPIO_BSRR_BS_2; // Set GPIOA Pin 2 (turn on the LED)
+        GPIOA->BSRR |= GPIO_BSRR_BR_3; // Reset GPIOA Pin 2 (turn off the LED)
+        GPIOA->BSRR |= GPIO_BSRR_BR_4; // Reset GPIOA Pin 3 (turn off the LED)
     } else if ((GPIOA->IDR & (GPIO_IDR_0) == 0) && (GPIOA->IDR & (GPIO_IDR_1) == 1)) // [0:1] = Pin 3 LED on
     {
-        GPIOA->BSRRL |= GPIO_BSRR_BS_3; // Set GPIOA Pin 3 (turn on the LED)
-        GPIOA->BSRRH |= GPIO_BSRR_BR_2; // Reset GPIOA Pin 2 (turn off the LED)
-        GPIOA->BSRRH |= GPIO_BSRR_BR_4; // Reset GPIOA Pin 4 (turn off the LED)
+        GPIOA->BSRR |= GPIO_BSRR_BS_3; // Set GPIOA Pin 3 (turn on the LED)
+        GPIOA->BSRR |= GPIO_BSRR_BR_2; // Reset GPIOA Pin 2 (turn off the LED)
+        GPIOA->BSRR |= GPIO_BSRR_BR_4; // Reset GPIOA Pin 4 (turn off the LED)
     } else if ((GPIOA->IDR & (GPIO_IDR_0) == 1) && (GPIOA->IDR & (GPIO_IDR_1) == 1)) // [1:1] = Pin 4 LED on
     {
-        GPIOA->BSRRL |= GPIO_BSRR_BS_4; // Set GPIOA Pin 4 (turn on the LED)
-        GPIOA->BSRRH |= GPIO_BSRR_BR_2; // Reset GPIOA Pin 2 (turn off the LED)
-        GPIOA->BSRRH |= GPIO_BSRR_BR_3; // Reset GPIOA Pin 3 (turn off the LED)
+        GPIOA->BSRR |= GPIO_BSRR_BS_4; // Set GPIOA Pin 4 (turn on the LED)
+        GPIOA->BSRR |= GPIO_BSRR_BR_2; // Reset GPIOA Pin 2 (turn off the LED)
+        GPIOA->BSRR |= GPIO_BSRR_BR_3; // Reset GPIOA Pin 3 (turn off the LED)
     }
 }
