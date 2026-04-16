@@ -12,8 +12,7 @@ typedef enum {
     STR_TOO_LONG
 } tx_status;
 
-void usart1_gpio_init(void);
-void configure_usart1(uint8_t word_len, uint8_t div_speed, uint8_t stop_bit, uint32_t usart_div, uint32_t clock);
+void usart1_gpio_init(uint32_t baudrate, uint32_t clock);
 void usart1_send_data(uint8_t *data, uint8_t len);
 void usart1_send_byte(uint8_t data);
 void usart1_receive_byte(uint8_t *data);
