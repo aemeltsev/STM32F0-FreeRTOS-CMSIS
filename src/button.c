@@ -90,7 +90,7 @@ void buttons_bin_sum_to_led(uint8_t x_a, uint8_t x_b, uint8_t x_c, uint8_t x_d,\
     uint8_t a = bin_to_dec(x_a, x_b, x_c, x_d);
     uint8_t b = bin_to_dec(y_a, y_b, y_c, y_d);
     uint8_t sum = (a + b)%16;
-    uint8_t out[4] = {};
+    uint8_t out[4] = {0};
     dec_to_bin(sum, out);
     // 1st rank
     if (out[0] == 1) {
