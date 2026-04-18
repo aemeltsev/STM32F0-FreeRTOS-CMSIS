@@ -60,7 +60,7 @@ void SysTick_Handler(void)
     }
 }
 
-// --- Вариант 1: Максимальная скорость (48 МГц) ---
+// --- Variant One: Maximum speed (48 MHz) from internal oscillator ---
 uint8_t ClockInitHSI48MHz(void)
 {
     /*
@@ -85,12 +85,12 @@ uint8_t ClockInitHSI48MHz(void)
     FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
 
     // 2. Configure PLL
-    // Перед настройкой PLL должен быть выключен
+    // Before configure PLL have got to disable
     if (RCC->CR & RCC_CR_PLLON) {
         RCC->CR &= ~RCC_CR_PLLON;
         while (RCC->CR & RCC_CR_PLLRDY);
     }
-    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    // Source PLL = HSI/2 (4MHz). Multiplier = 12. Result 48MHz.
     RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
     RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
     
@@ -118,14 +118,14 @@ uint8_t ClockInitHSI48MHz(void)
     RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
     while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
 
-    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    // 7. Configure clocks for peripherals (after switch on PLL)
     
-    // Явно указываем USART1 использовать системную частоту (48МГц)
+    // We explicitly tell USART1 to use the system frequencies (48 MHz)
     RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
     RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
     
-    // Явно указываем I2C1 использовать системную частоту (48МГц)
-    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    // We explicitly tell I2C1 to use the system frequency (48 MHz)
+    // This VERY IMPORTANT for timing 0x10805E89
     RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
     RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
 
@@ -133,17 +133,17 @@ uint8_t ClockInitHSI48MHz(void)
     RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
 
     /*
-    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
-    // Это позволит точнее настроить тайминги 100/400 кГц
+    // For I2C1, recommend using SYSCLK (48MHz) 
+    // This will allow you to more accurately adjust the 100/400 kHz timings.
     RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
     */
 
-    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    // 8. Update SystemCoreClock (standart method CMSIS)
     SystemCoreClockUpdate(); 
-    return 1; // Успех
+    return 1; // Success
 }
 
-// --- Вариант 2: Средняя скорость (24 МГц) ---
+// --- Variand Two: Medium speed (24 MHz) from internal oscillator ---
 uint8_t ClockInitHSI24MHz(void)
 {
     uint32_t timeout = 0xFFFF;
@@ -151,41 +151,41 @@ uint8_t ClockInitHSI24MHz(void)
     // 1. Enable HSI oscillator and wait for it to be ready
     RCC->CR |= RCC_CR_HSION;
     while (((RCC->CR & RCC_CR_HSIRDY) == 0) && --timeout);
-    if (timeout == 0) return 0; // Ошибка: HSI не запустился
+    if (timeout == 0) return 0; // Error: HSI does not running
 
-    // 2. Настройка Flash: 0 wait state (допустимо до 24МГц), включаем Prefetch
+    // 2. Configure Flash: 0 wait state (up to 24 MHz permissible), enable Prefetch
     FLASH->ACR |= FLASH_ACR_PRFTBE;
     FLASH->ACR &= ~FLASH_ACR_LATENCY; 
 
-    // 3. Настройка PLL - Выключаем PLL перед настройкой (обязательно!)
+    // 3. Configure PLL - Enable PLL before configure (IMPORTANT!)
     if (RCC->CR & RCC_CR_PLLON) {
         RCC->CR &= ~RCC_CR_PLLON;
-        while (RCC->CR & RCC_CR_PLLRDY); // Ждем полной остановки
+        while (RCC->CR & RCC_CR_PLLRDY); // Wait for full stop
     }
     
-    // 5. Configure PLL - Источник PLL = HSI/2 (4МГц). Множитель = 6. Итого 24МГц.
+    // 5. Configure PLL - Source PLL = HSI/2 (4MHz). Multiplier = 6. Total 24MHz.
     RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
     RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
     
     RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
     RCC->CFGR |= RCC_CFGR_PLLMUL6; // Set PLL multiplication factor to 6
     
-    // 6. Включаем PLL и ждем стабилизации
+    // 6. Disable PULL and wait for stabilise
     RCC->CR |= RCC_CR_PLLON;
     timeout = 0xFFFF;
     while (!(RCC->CR & RCC_CR_PLLRDY) && --timeout);
     if (timeout == 0) return 0;
 
-    // 5. Переключаем систему (SW) на источник PLL
+    // 5. Switch system (SW) on PLL source
     RCC->CFGR = (RCC->CFGR & ~RCC_CFGR_SW) | RCC_CFGR_SW_PLL;
     while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
 
-    // 6. Обновляем глобальную переменную частоты
+    // 6. Update global frequency variable
     SystemCoreClockUpdate();
-    return 1; // Успех
+    return 1; // Success
 }
 
-// --- Вариант 3: Экономичный режим (8 МГц без PLL) ---
+// --- Variant Three: Economic mode (8 MHz without PLL) ---
 uint8_t ClockInitHSI8MHz(void)
 {
     uint32_t timeout = 0xFFFF;
@@ -215,7 +215,7 @@ uint8_t ClockInitHSI8MHz(void)
     return 1; // Успех
 }
 
-// --- Вариант 4: HSE -> PLL -> 48 МГц (Кварц 8 МГц) ---
+// --- Variant Four: HSE -> PLL -> 48 MHz (Quartz for 8 MHz) ---
 uint8_t ClockInitHSE48MHz(void)
 {
     uint32_t timeout;
@@ -298,7 +298,7 @@ uint8_t ClockInitHSE48MHz(void)
     return 0; // УСПЕХ
 }
 
-// --- Вариант 5: HSE -> PLL -> 32 МГц (Кварц 8 МГц) ---
+// --- Variant Five: HSE -> PLL -> 32 MHz (Quartz for 8 MHz) ---
 uint8_t ClockInitHSE32MHz(void)
 {
     uint32_t timeout = 0xFFFF;
@@ -347,7 +347,7 @@ uint8_t ClockInitHSE32MHz(void)
     return 0; // Успех
 }
 
-// --- Вариант 6: Прямой HSE 8 МГц (Без PLL) ---
+// --- Variant Six: Straight HSE 8 MHz (Without PLL) ---
 uint8_t ClockInitHSE8MHz(void)
 {
     uint32_t timeout = 0xFFFF;
