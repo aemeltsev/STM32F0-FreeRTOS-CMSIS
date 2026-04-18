@@ -3,6 +3,8 @@
 #include "util.h"
 #include "button.h"
 
+extern uint32_t SystemCoreClock;
+
 uint8_t ClockInitHSI48MHz(void);
 uint8_t ClockInitHSI24MHz(void);
 uint8_t ClockInitHSI8MHz(void);
