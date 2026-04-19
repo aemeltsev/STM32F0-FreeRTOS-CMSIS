@@ -33,17 +33,24 @@ int main(void)
 
 void SysTick_Init(uint32_t ticks)
 {
-    // SystemCoreClock / 1000 — количество тиков для 1 мс
-    // Регулятор LOAD определяет период
-    SysTick->LOAD = (ticks  / 1000) - 1;
+    // SystemCoreClock / 1000 — the number of ticks for 1 ms
+    // The LOAD controller determines the period
+    // If we passed 1000 as the "desired interrupt frequency in Hz"
+    // then we need to divide the system frequency by this number
+    if(ticks == 1000) {
+        SysTick->LOAD = (SystemCoreClock / 1000) - 1;
+    } else {
+        // Otherwise, we consider that the finished processor frequency has been transferred
+        SysTick->LOAD = (ticks / 1000) - 1;
+    }
     
-    // Сброс текущего значения
+    // Reset current value
     SysTick->VAL = 0;
     
-    // Настройка управляющего регистра:
-    // BIT 2: CLKSOURCE = 1 (процессорная частота)
-    // BIT 1: TICKINT = 1 (разрешить прерывание)
-    // BIT 0: ENABLE = 1 (запустить таймер)
+    // Control register settings:
+    // BIT 2: CLKSOURCE = 1 (processor frequency)
+    // BIT 1: TICKINT = 1 (enable interrupt)
+    // BIT 0: ENABLE = 1 (start timer)
     SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk | 
                     SysTick_CTRL_TICKINT_Msk   | 
                     SysTick_CTRL_ENABLE_Msk;
@@ -195,26 +202,26 @@ uint8_t ClockInitHSI8MHz(void)
     // 1. Enable HSI oscillator and wait for it to be ready
     RCC->CR |= RCC_CR_HSION;
     while (((RCC->CR & RCC_CR_HSIRDY) == 0) && --timeout);
-    if (timeout == 0) return 0; // Ошибка: HSI не запустился
-
-    // 2. Сброс прескалеров шин AHB, APB1 в дефолтное состояние (делитель 1)
-    // Это гарантирует, что периферия не работает на "хвостах" старых настроек
+    if (timeout == 0) return 0; // Error: HSI is not running
+    
+    // 2. Reset the AHB and APB1 bus prescalers to their default state (divider 1)
+    // This ensures that the peripherals don't operate at the "tails" of the old settings.
     RCC->CFGR &= ~(RCC_CFGR_HPRE | RCC_CFGR_PPRE);
 
-    // 3. Настройка Flash: для 8 МГц достаточно Latency 0
-    // Но важно сбросить буфер претча (Prefetch), если он был включен ранее
+    // 3. Configure Flash: for 8 MHz enough Latency 0
+    // But it's important to reset the buffer (Prefetch), if it turn on before
     FLASH->ACR &= ~(FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE);
 
-    // 4. Переключение на HSI напрямую
+    // 4. Switch to HSI straight
     RCC->CFGR &= ~RCC_CFGR_SW;
     while((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_HSI);
     
-    // 5. Выключаем PLL для экономии энергии
+    // 5. Disable PLL for power economy
     RCC->CR &= ~RCC_CR_PLLON; 
 
-    // 6. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    // 6. Update SystemCoreClock value (CMSIS standard method)
     SystemCoreClockUpdate(); 
-    return 1; // Успех
+    return 1; // Success
 }
 
 // --- Variant Four: HSE -> PLL -> 48 MHz (Quartz for 8 MHz) ---
@@ -222,71 +229,71 @@ uint8_t ClockInitHSE48MHz(void)
 {
     uint32_t timeout;
 
-    // 1. Включаем HSE и ждем готовности
+    // 1. Enable HSE and wait for it to be ready
     RCC->CR |= RCC_CR_HSEON;
-    //Ждем успешного запуска или окончания тайм-аута
+    // We are waiting for a successful launch or the end of the timeout
     for (timeout = 0; ; timeout++)
     {
-        //Если успешно запустилось, то выходим из цикла
+        // If it starts successfully, then we exit the loop.
         if (RCC->CR & RCC_CR_HSERDY){
-        // Ожидаем, пока HSE не стабилизируется
+        // Wait until HSE is stabilise
             break;
         }
-        //Если не запустилось, то отключаем все, что включили и возвращаем ошибку
+        // If it doesn't start, turn off everything that turns on and return the error
         if (timeout > 0x1000){
-            RCC->CR &= ~(RCC_CR_HSEON); //Останавливаем HSE
+            RCC->CR &= ~(RCC_CR_HSEON); // Stop HSE
             return 1;
         }
     }
 
-    // 2. Настройка Flash (1 wait state для 48 МГц)
-    // Настройка частоты доступа к FLASH-памяти
-    FLASH->ACR &= ~FLASH_ACR_LATENCY; // Сброс битов LATENCY
+    // 2. Flash Configuration (1 wait state for 48 MHz)
+    // Configuring the flash memory access frequency
+    FLASH->ACR &= ~FLASH_ACR_LATENCY; // Reset of LATENCY bits
     FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
 
-    // 3. Настройка PLL
-    // Выключаем PLL перед изменением параметров (на всякий случай)
+    // 3. Configure PLL
+    // Enable PLL before change parameters (just in case)
     RCC->CR &= ~RCC_CR_PLLON;
     while(RCC->CR & RCC_CR_PLLRDY);
 
-    // Очищаем биты источника, предделителя (PREDIV) и множителя
+    // Clear the source, prescaler (PREDIV), and multiplier bits
     RCC->CFGR &= ~(RCC_CFGR_PLLSRC | RCC_CFGR_PLLMUL);
     
-    // Источник PLL = HSE (через PREDIV)
+    // Source of PLL = HSE (through PREDIV)
     RCC->CFGR |= RCC_CFGR_PLLSRC_HSE_PREDIV; 
     
-    // Убеждаемся, что PREDIV равен 1 (т.е. вход 8 МГц не делится)
+    // We make sure that PREDIV is equal to 1 (i.e. the 8 MHz input is not taken into account)
     RCC->CFGR2 &= ~RCC_CFGR2_PREDIV;
     RCC->CFGR2 |= RCC_CFGR2_PREDIV_DIV1;
 
-    // Множитель x6 (8 МГц * 6 = 48 МГц)
+    // Multiplier x6 (8 MHz * 6 = 48 MHz)
     RCC->CFGR |= RCC_CFGR_PLLMUL6;
 
-    // 4. Включаем PLL и ждем стабилизации
+    // 4. Enable PLL and wait for a stabilise
     RCC->CR |= RCC_CR_PLLON;
-    //Ждем успешного запуска или окончания тайм-аута
+    // Wait for a success run or end of time out
     for(timeout=0; ; timeout++)
     {
-        //Если успешно запустилось, то выходим из цикла
+        // If it starts successfully, then we exit the loop.
         if (RCC->CR & RCC_CR_PLLRDY) {
-            // Ожидаем, пока PLL не стабилизируется
+            // Wait until PLL is stabilise
             break;
         }
         
-        //Если по каким-то причинам не запустился PLL, то отключаем все, что включили и возвращаем ошибку
+        // If for some reason the PLL does not start, then we turn off everything that was turned on and return an error
         if(timeout > 0x1000)
         {
-            RCC->CR &= ~(RCC_CR_HSEON); //Останавливаем HSE
-            RCC->CR &= ~(RCC_CR_PLLON); //Останавливаем PLL
+            RCC->CR &= ~(RCC_CR_HSEON); // Stop HSE
+            RCC->CR &= ~(RCC_CR_PLLON); // Stop PLL
             return 2;
         }
     }
 
-    // 5. Настройка делителей шин (AHB=1, APB=1)
+    // 5. Configure a bus divisor (AHB=1, APB=1)
     RCC->CFGR &= ~(RCC_CFGR_HPRE | RCC_CFGR_PPRE);
     RCC->CFGR |= (RCC_CFGR_HPRE_DIV1 | RCC_CFGR_PPRE_DIV1);
 
-    // 6. Переключение системы на PLL
+    // 6. Switching the system to PLL
     RCC->CFGR &= ~RCC_CFGR_SW;
     RCC->CFGR |= RCC_CFGR_SW_PLL;
     timeout=0;
@@ -294,10 +301,10 @@ uint8_t ClockInitHSE48MHz(void)
         timeout++;
     }
 
-    // 7. Обновляем глобальную переменную частоты
+    // 7. Update SystemCoreClock value (CMSIS standard method)
     SystemCoreClockUpdate();
     
-    return 0; // УСПЕХ
+    return 0; // Success
 }
 
 // --- Variant Five: HSE -> PLL -> 32 MHz (Quartz for 8 MHz) ---
@@ -305,48 +312,48 @@ uint8_t ClockInitHSE32MHz(void)
 {
     uint32_t timeout = 0xFFFF;
 
-    // 1. Включаем HSE (обязательно, так как он источник для PLL)
+    // 1. Turn on HSE (required, as it is the source for PLL)
     RCC->CR |= RCC_CR_HSEON;
     while (!(RCC->CR & RCC_CR_HSERDY) && --timeout);
     if (timeout == 0) return 1;
 
-    // 2. Настройка Flash (1 wait state для 32 МГц)
-    // Настройка частоты доступа к FLASH-памяти
-    FLASH->ACR &= ~FLASH_ACR_LATENCY; // Сброс битов LATENCY
+    // 2. Flash Configuration (1 wait state for 32 MHz)
+    // Configuring the flash memory access frequency
+    FLASH->ACR &= ~FLASH_ACR_LATENCY; // Reset of LATENCY bits
     FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
 
-    // 3. Настройка PLL: Источник HSE, PREDIV /1, MUL x4 (8 * 4 = 32)
-    // Перед настройкой PLL должен быть выключен
+    // 3. PLL setup: Source HSE, PREDIV /1, MUL x4 (8 * 4 = 32)
+    // PLL must be disabled before setup
     RCC->CR &= ~RCC_CR_PLLON;
     while(RCC->CR & RCC_CR_PLLRDY);
-
-        // Очищаем биты источника, предделителя (PREDIV) и множителя
+    
+    // Clean the source prescaler (PREDIV) and multiplier bits
     RCC->CFGR &= ~(RCC_CFGR_PLLSRC | RCC_CFGR_PLLMUL);
 
-    // Источник PLL = HSE (через PREDIV)
+    // Source is PLL = HSE (through PREDIV)
     RCC->CFGR |= RCC_CFGR_PLLSRC_HSE_PREDIV; 
     
-    // Убеждаемся, что PREDIV равен 1 (т.е. вход 8 МГц не делится)
+    // We make sure, that PREDIV is equal 1 (i.e. input 8 MHz is not divisible)
     RCC->CFGR2 &= ~RCC_CFGR2_PREDIV;
     RCC->CFGR2 |= RCC_CFGR2_PREDIV_DIV1;
 
-    // Множитель x6 (8 МГц * 4 = 32 МГц)
+    // Multiplier is x6 (8 MHz * 4 = 32 MHz)
     RCC->CFGR |= RCC_CFGR_PLLMUL4;
 
-    // 4. Включаем PLL и ждем стабилизации
+    // 4. Enable PLL and wait for a stabilise
     RCC->CR |= RCC_CR_PLLON;
     timeout = 0xFFFF;
     while (!(RCC->CR & RCC_CR_PLLRDY) && --timeout);
     if (timeout == 0) return 2;
 
-    // 5. Переключение системы на PLL
+    // 5. Switching the system to PLL
     RCC->CFGR = (RCC->CFGR & ~RCC_CFGR_SW) | RCC_CFGR_SW_PLL;
     while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
 
-    // 6. Обновляем переменную частоты
+    // 6. Update SystemCoreClock value
     SystemCoreClockUpdate();
     
-    return 0; // Успех
+    return 0; // Success
 }
 
 // --- Variant Six: Straight HSE 8 MHz (Without PLL) ---
@@ -354,28 +361,28 @@ uint8_t ClockInitHSE8MHz(void)
 {
     uint32_t timeout = 0xFFFF;
 
-    // 1. Включаем HSE (обязательно, так как он источник для PLL)
+    // 1. Turn on HSE (required, as it is the source for PLL)
     RCC->CR |= RCC_CR_HSEON;
     while (!(RCC->CR & RCC_CR_HSERDY) && --timeout);
     if (timeout == 0) return 1;
     
-    // 2. Настройка Flash: для 8 МГц задержки не нужны (0 Wait State)
-    // Но полезно сбросить настройки на дефолтные
+    // 2. Flash settings: no delays are needed for 8 MHz (0 Wait State)
+    // But it's useful to reset the settings to defaults
     FLASH->ACR &= ~(FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE);
     
     RCC->CFGR = (RCC->CFGR & ~RCC_CFGR_SW) | RCC_CFGR_SW_HSE;
 
-    // 5. Ожидаем подтверждения переключения (SWS)
+    // 5. Waiting for switch confirmation (SWS)
     timeout = 0xFFFF;
     while(((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_HSE) && --timeout);
-    if (timeout == 0) return 2; // Ошибка переключения
+    if (timeout == 0) return 2; // Error switching
     
-    // 6. Выключаем PLL (не нужен для этого режима, экономим ток)
+    // 6. Disable PLL (not need for this mode saving current)
     RCC->CR &= ~RCC_CR_PLLON;
-    while (RCC->CR & RCC_CR_PLLRDY); // Ждем остановки, если был включен
+    while (RCC->CR & RCC_CR_PLLRDY); // We wait for it to stop if it was turned on.
     
-    // 7. Обновляем глобальную переменную частоты (запишет 8000000)
+    // 7. Update SystemCoreClock value (to write 8000000 value)
     SystemCoreClockUpdate();
     
-    return 0; // Успех
+    return 0; // Success
 }
