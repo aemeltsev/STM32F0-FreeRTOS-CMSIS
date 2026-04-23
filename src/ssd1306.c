@@ -133,3 +133,271 @@ const uint8_t font5x7_RU[][5] = {
     {0x7F, 0x08, 0x3E, 0x41, 0x3E}, // Ю
     {0x46, 0x29, 0x19, 0x09, 0x7F}  // Я
 };
+
+/*
+Clocking: Enable clocking for Port B and the I2C1 module, 
+and assign the configured external clock source.
+Pin Configuration: Alternate function, open drain.
+Analog Filter: Enabled by default (ANFOFF = 0 in CR1), it removes noise shorter than 50ns. 
+This is useful for OLEDs.
+Timings (TIMINGR): Unlike older series (F1), this is a complex register. 
+The value 0x00902025 is written to the register for a frequency of 400 kHz at a 48 MHz clock frequency. 
+The value 0x10805E89 is for a frequency of 100 kHz at a 48 MHz clock frequency.
+*/
+void I2C1_OLED_Init(void)
+{
+    // 1. Clocking for GPIOB and I2C1
+    RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
+    RCC->APB1ENR |= RCC_APB1ENR_I2C1EN;
+
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // I2C from 48МГц
+
+    // 2. Configurate output PB6, PB7: Alternate Function, Open-Drain
+    // Select alternate function AF1 for I2C1 on the STM32F0
+    GPIOB->MODER &= ~(GPIO_MODER_MODER6 | GPIO_MODER_MODER7); // Bits reset
+    GPIOB->MODER |= (GPIO_MODER_MODER6_1 | GPIO_MODER_MODER7_1); // Bits set
+    GPIOB->AFR[0] &= ~(GPIO_AFRL_AFSEL6 | GPIO_AFRL_AFSEL7);
+    GPIOB->AFR[0] |= (1 << (6 * 4)) | (1 << (7 * 4)); // Alternate function AF1
+    GPIOB->OTYPER |= (GPIO_OTYPER_OT_6 | GPIO_OTYPER_OT_7); // 1: Output open-drain
+    //GPIOB->PUPDR |= (GPIO_PUPDR_PUPDR6_0 | GPIO_PUPDR_PUPDR7_0); // Pull-up
+
+    // 3. Figure 203. I2C initialization flow pp.533 RM0360 - Reference manual
+    I2C1->CR1 &= ~I2C_CR1_PE;
+    
+    // 4. Enable analog noise filter (ANFOFF=0)
+    I2C1->CR1 &= ~I2C_CR1_ANFOFF;
+    // Set the filter threshold (e.g., 4 I2C clock cycles).
+    //I2C1->CR1 &= ~I2C_CR1_DNF; // Bits reset
+    //I2C1->CR1 |= (4 << I2C_CR1_DNF_Pos);
+
+
+    // 5. The set for NOSTRETCH
+    // If need to DISABLE clock stretching:
+    // I2C1->CR1 |= I2C_CR1_NOSTRETCH;
+    
+    // Or need for ENABLE (its recommended for Master):
+    I2C1->CR1 &= ~I2C_CR1_NOSTRETCH;
+
+    // 6. Set the timings (for I2CCLK = 48 MHz)
+    // The value for Fast Mode (400 kHz):
+    // PRESC=0, SCLDEL=0x9, SDADEL=0x0, SCLH=0x20, SCLL=0x25
+    // I2C1->TIMINGR = (uint32_t)0x00902025; 
+    I2C1->TIMINGR = 0x10805E89; // 100kHz for 48MHz
+    
+    // 7. Enabling peripherals
+    I2C1->CR1 |= I2C_CR1_PE;
+}
+
+int I2C_OLED_WaitTXIS(void)
+{
+    /*
+    I2C_ISR_TXIS - The flag is raised when the TXDR register is empty and ready to receive a new byte.
+    I2C_ISR_NACKF - If the display does not respond (e.g., a poor connection), the cycle is interrupted.
+    */
+    while (!(I2C1->ISR & (I2C_ISR_TXIS | I2C_ISR_NACKF)));
+	
+	/*
+    If a NACK is received, clear the flag (NACKCF) and generate a STOP to free the bus.
+    Otherwise, the MCU will hang waiting for the next byte, which will not be received.
+	*/
+    if (I2C1->ISR & I2C_ISR_NACKF)
+	{
+        I2C1->ICR |= I2C_ICR_NACKCF;
+        I2C1->CR2 |= I2C_CR2_STOP;
+        return 0;
+    }
+    return 1;
+}
+
+/*
+For the SSD1306, command is always a two-byte packet: Control byte (0x00) + Command byte.
+*/
+void OLED_SendCommand(uint8_t cmd)
+{
+    I2C1->CR2 &= ~(I2C_CR2_SADD | I2C_CR2_NBYTES | I2C_CR2_RD_WRN); 
+	// Set the display address. Specify that we will transfer 2 bytes. Generate a start condition.
+    I2C1->CR2 |= (SSD1306_ADDRESS << 1) | (2 << I2C_CR2_NBYTES_Pos) | I2C_CR2_START | I2C_CR2_AUTOEND;
+
+    // SSD1306_COMMAND_MODE (0x00) is sent first, then the command itself.
+    if (I2C_OLED_WaitTXIS()) I2C1->TXDR = SSD1306_COMMAND_MODE;
+    if (I2C_OLED_WaitTXIS()) I2C1->TXDR = cmd;
+    
+	/* At the end, wait for STOPF. 
+    This is important: you cannot start a new transaction until 
+    the previous one has physically completed on the line.
+    */
+    while (!(I2C1->ISR & I2C_ISR_STOPF));
+    I2C1->ICR |= I2C_ICR_STOPCF;
+}
+
+/*
+Chunking: The entire screen buffer is 1024 bytes.
+The NBYTES register in the STM32 is only 8 bits in size,
+meaning it can send a maximum of 255 bytes at a time.
+*/
+void OLED_SendData(uint8_t* data, uint16_t size)
+{
+    uint16_t sent = 0;
+    while (sent < size)
+	{
+	    /*
+        We take 128 bytes of data + 1 mode byte (SSD1306_DATA_MODE = 0x40).
+        The total chunk is 1 + 1 (maximum 129 bytes), which fits well within the hardware limits.
+	    */
+        uint8_t chunk = (size - sent > 128) ? 128 : (uint8_t)(size - sent);
+        I2C1->CR2 &= ~(I2C_CR2_SADD | I2C_CR2_NBYTES | I2C_CR2_RD_WRN);
+        I2C1->CR2 |= (SSD1306_ADDRESS << 1) | ((chunk + 1) << I2C_CR2_NBYTES_Pos) | I2C_CR2_START;
+        
+		/*
+        The program opens an I2C session, sent 0x40, and sent 128 bytes from the buffer,
+        closes the session (STOP), and 
+        repeats this eight times until all 1024 bytes have been transferred. 
+		*/
+        if (I2C_OLED_WaitTXIS()) I2C1->TXDR = SSD1306_DATA_MODE;
+        for (uint8_t i = 0; i < chunk; i++) {
+            if (I2C_OLED_WaitTXIS()) I2C1->TXDR = data[sent++];
+        }
+		
+		/*
+        At the end, wait for STOPF. 
+        This is important: you cannot start a new transaction until 
+        the previous one has physically completed on the line.
+        */
+        while (!(I2C1->ISR & I2C_ISR_STOPF));
+        I2C1->ICR |= I2C_ICR_STOPCF;
+    }
+}
+
+void OLED_Init(void)
+{
+    OLED_SendCommand(SSD1306_DISPLAYOFF);
+    
+    OLED_SendCommand(SSD1306_SETDISPLAYCLOCKDIV);
+    OLED_SendCommand(0x80);
+    
+    OLED_SendCommand(SSD1306_SETMULTIPLEX);
+    OLED_SendCommand(0x3F); // For 128x64
+
+    OLED_SendCommand(SSD1306_SETDISPLAYOFFSET);
+    OLED_SendCommand(0x00);
+    
+    OLED_SendCommand(SSD1306_SETSTARTLINE | 0x00);
+    
+    OLED_SendCommand(SSD1306_CHARGEPUMP);
+    OLED_SendCommand(SSD1306_PUMP_ON);
+    
+    OLED_SendCommand(SSD1306_MEMORYMODE);
+    OLED_SendCommand(SSD1306_ADDR_HORIZ);
+    
+    OLED_SendCommand(SSD1306_SEGREMAP_127); // Flip horizontally
+    OLED_SendCommand(SSD1306_COMSCANDEC);   // Flip vertically
+    
+    OLED_SendCommand(SSD1306_SETCOMPINS);
+    OLED_SendCommand(0x12);
+    
+    OLED_SendCommand(SSD1306_SETCONTRAST);
+    OLED_SendCommand(0xCF);
+    
+    OLED_SendCommand(SSD1306_SETPRECHARGE);
+    OLED_SendCommand(0xF1);
+    
+    OLED_SendCommand(SSD1306_SETVCOMDETECT);
+    OLED_SendCommand(0x40);
+    
+    OLED_SendCommand(SSD1306_DISPLAYALLON_RESUME);
+    OLED_SendCommand(SSD1306_NORMALDISPLAY);
+    OLED_SendCommand(SSD1306_DISPLAYON);
+}
+
+/*
+Given the NBYTES (255 bytes) limitation we discussed earlier, 
+the easiest way to clear is in cycles of 128 bytes (one page).
+*/
+void OLED_Clear(void)
+{
+    OLED_SetCursor(0, 0); // First, let's go back to the beginning
+    uint8_t zero_page[128] = {0}; // Empty string
+    
+    // In Horizontal Addressing mode, the cursor will automatically move to a new line
+    // We need to fill 8 lines (pages) of 128 pixels each
+    for (uint8_t i = 0; i < 8; i++) {
+        OLED_SendData(zero_page, 128);
+    }
+}
+
+/*
+To write in a specific location on the screen, 
+you need to send commands to set the "window" or position.
+*/
+void OLED_SetCursor(uint8_t column, uint8_t page)
+{
+    // Specify the column range (from column to 127)
+    OLED_SendCommand(SSD1306_COLUMNADDR);
+    OLED_SendCommand(column);
+    OLED_SendCommand(127);
+
+    // Specify the range of pages (lines) (from page to 7)
+    OLED_SendCommand(SSD1306_PAGEADDR);
+    OLED_SendCommand(page);
+    OLED_SendCommand(7);
+}
+
+
+/*
+Example array for letter 'A' (5 bytes) - 0x7E, 0x11, 0x11, 0x11, 0x7E
+*/
+void OLED_DrawChar(uint8_t *font_char)
+{
+    /* 
+    Just send 5 data bytes to the display
+    If Horizontal Mode is enabled, the cursor will move to the right
+    */
+    OLED_SendData(font_char, 5);
+    
+    // Add the empty column (1 pixel) between letters for much better reading
+    uint8_t space = 0x00;
+    OLED_SendData(&space, 1);
+}
+
+/*
+Call OLED_Init().
+Call OLED_Clear() to clear out any garbage.
+Call OLED_SetCursor(0, 0), starting writing from the upper-left corner.
+Call OLED_DrawChar(...) as many times as you need characters.
+*/
+void OLED_PutC(char c)
+{
+    if (c < 32 || c > 126) c = ' '; // Replace unknown characters with spaces
+    
+    /*
+    Take 5 bytes from the font array for a specific character
+    And send them to the display
+    */
+    OLED_SendData((uint8_t*)font5x7[c - 32], 5);
+    
+    // Add 1 empty column (character spacing)
+    uint8_t space = 0x00;
+    OLED_SendData(&space, 1);
+}
+
+void OLED_PutS(char* str)
+{
+    while (*str) {
+        OLED_PutC(*str++);
+    }
+}
+
+/*
+int main(void)
+{
+    OLED_Init();
+    OLED_Clear();
+
+    OLED_SetCursor(0, 0); // Upper left corner
+    OLED_PutS("Hello STM32!");
+    
+    OLED_SetCursor(0, 2); // Third line (page)
+    OLED_PutS("Temp: 25.5 C");
+}
+*/
