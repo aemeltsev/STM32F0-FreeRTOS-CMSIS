@@ -25,3 +25,10 @@ uint32_t swap_uint32(uint32_t val);
 
 long map(long x, long in_min, long in_max, long out_min, long out_max);
 uint16_t fast_avg(uint16_t new_val, uint16_t old_avg, uint8_t shift);
+
+void hex_str_to_byte(const char* str, uint8_t* out);
+void u32_to_str(uint32_t val, char* buf);
+
+uint8_t is_power_of_two(uint32_t n);
+uint32_t align_up(uint32_t val, uint32_t align);
+uint32_t align_up_fast(uint32_t val, uint32_t align);

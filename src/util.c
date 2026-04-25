@@ -107,3 +107,89 @@ uint16_t fast_avg(uint16_t new_val, uint16_t old_avg, uint8_t shift)
     // Allows you to simulate a low-pass filter
     return old_avg + ((int32_t)(new_val - old_avg) >> shift);
 }
+
+/*
+This function takes a string of two characters (for example, "A5") 
+and turns it into number 165. It takes into account both uppercase and lowercase letters.
+*/
+void hex_str_to_byte(const char* str, uint8_t* out)
+{
+  uint8_t result = 0;
+  for (uint8_t i = 0; i < 2; i++)
+  {
+    char c = str[i];
+    uint8_t value = 0;
+
+    if (c >= '0' && c <= '9') value = c - '0';
+    else if (c >= 'A' && c <= 'F') value = c - 'A' + 10;
+    else if (c >= 'a' && c <= 'f') value = c - 'a' + 10;
+    
+    if (i == 0) result = value << 4; // high half-byte(nibble)
+    else result |= value;            // low half-byte(nibble)
+  }
+  *out = result;
+}
+
+/*
+Similar to itoa or sprintf(buf, "%u", val). 
+The function writes the number to the buffer and adds a \0 line terminator at the end. 
+The buffer must be at least 11 bytes (for the number 4,294,967,295 + null terminator).
+*/
+void u32_to_str(uint32_t val, char* buf)
+{
+  char temp[10];
+  uint8_t i = 0;
+  
+  // Processing of zero
+  if (val == 0) {
+    *buf++ = '0';
+    *buf = '\0';
+    return;
+  }
+  
+  // Parse the number from the end
+  while (val > 0) {
+    temp[i++] = (val % 10) + '0';
+    val /= 10;
+  }
+  
+  // Rewrite to the main buffer in the correct order
+  while (i > 0) {
+    *buf++ = temp[--i];
+  }
+  
+  *buf = '\0'; // End the string
+}
+
+/*
+If subtract 1 from the power of two, all the bits after the single "1" become ones
+(for example, 1000 (8) becomes 0111 (7)). The & operation will give 0 in this case.
+*/
+uint8_t is_power_of_two(uint32_t n)
+{
+  // The number must be greater than 0 and pass the bit test
+  return (n > 0) && ((n & (n - 1)) == 0);
+}
+
+/*
+Often used when working with DMA 
+or memory allocation where data must start at 
+an address that is a multiple of 4, 8, or 16.
+*/
+uint32_t align_up(uint32_t val, uint32_t align)
+{
+  if (align == 0) return val;
+  uint32_t remainder = val % align;
+  if (remainder == 0) return val;
+  return val + (align - remainder);
+}
+
+/*
+If the alignment will always be 2, 4, 8, etc., 
+this code is significantly faster since it doesn't use division.
+*/
+uint32_t align_up_fast(uint32_t val, uint32_t align)
+{
+    // Works only if align = 2, 4, 8, 16...
+    return (val + (align - 1)) & ~(align - 1);
+}
