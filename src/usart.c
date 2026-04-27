@@ -42,9 +42,9 @@ void usart1_gpio_init(uint32_t baudrate, uint32_t clock)
     USART1->BRR = clock / baudrate;
     USART1->CR1 = USART_CR1_TE | USART_CR1_RE | USART_CR1_UE;
 
-    USART1->CR1 |= USART_CR1_RXNEIE; // Enable interrupt by receiving byte
-    NVIC_SetPriority(USART1_IRQn, 0); // Hight priority
-    NVIC_EnableIRQ(USART1_IRQn);      // Enable in NVIC
+    // USART1->CR1 |= USART_CR1_RXNEIE; // Enable interrupt by receiving byte
+    // NVIC_SetPriority(USART1_IRQn, 0); // Hight priority
+    // NVIC_EnableIRQ(USART1_IRQn);      // Enable in NVIC
 }
 
 void usart1_send_data(uint8_t *data, uint8_t len)
@@ -115,6 +115,7 @@ void usart1_send_hex(uint8_t num)
     usart1_send_byte(' ');                          // Space for readability
 }
 
+/*
 void USART1_IRQHandler(void)
 {
     uint32_t isr_reg = USART1->ISR;
@@ -174,7 +175,7 @@ void USART1_IRQHandler(void)
         // Handling even error
     }
 }
-
+*/
 
 /*
 int main(void)
