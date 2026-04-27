@@ -51,6 +51,7 @@ include ./lib/CMSIS.mk
 #include ./lib/FreeRTOS.mk
 
 CSRC += src/main.c
+CSRC += src/usart.c
 CSRC += src/ssd1306.c
 
 ASMSRC += 
