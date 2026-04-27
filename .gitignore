@@ -1,0 +1,19 @@
+# Ignore OS-specific files
+.DS_Store
+Thumbs.db
+
+# Ignore logs
+*.log
+
+# Ignore environment variables and secrets
+.env
+.env.local
+.build_no
+
+# Ignore temporary folders
+/temp/
+/dist/
+
+# Ignore binary files
+*.bin
+*.hex
