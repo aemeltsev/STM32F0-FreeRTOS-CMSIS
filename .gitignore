@@ -9,11 +9,19 @@ Thumbs.db
 .env
 .env.local
 .build_no
+*.d
+*.bak
+*.dmp
+*.map
 
 # Ignore temporary folders
 /temp/
 /dist/
 
+# Ignore object files
+*.o
+
 # Ignore binary files
 *.bin
 *.hex
+*.elf
