@@ -1,3 +1,5 @@
+#ifndef UTIL_H
+#define UTIL_H
 /**
  *******************************************
  * @file    util.h
@@ -32,3 +34,5 @@ void u32_to_str(uint32_t val, char* buf);
 uint8_t is_power_of_two(uint32_t n);
 uint32_t align_up(uint32_t val, uint32_t align);
 uint32_t align_up_fast(uint32_t val, uint32_t align);
+
+#endif // UTIL_H
