@@ -1,3 +1,7 @@
+
+#ifndef BUTTON_H
+#define BUTTON_H
+
 #include "stm32f0xx.h"
 #include "util.h"
 
@@ -7,3 +11,5 @@ void init_button_led(void);
 void button_to_led(uint8_t *button_state);
 void init_buttons_for_bin_sum(void);
 void init_buttons_for_sel_led(void);
+
+#endif
