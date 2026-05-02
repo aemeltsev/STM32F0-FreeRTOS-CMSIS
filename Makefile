@@ -35,6 +35,9 @@ MCU_FAMILY        = STM32F0xx
 MCU_MODEL_FAMILY  = STM32F030x8
 MCU_MODEL         = STM32F030C8
 
+FLASH_SIZE = 65536
+RAM_SIZE   = 8192
+
 # Conditional compilation: Set to no to turn off OLED
 USE_I2C_OLED = yes
 
@@ -71,6 +74,8 @@ OD   = $(TRGT)objdump
 SZ   = $(TRGT)size
 HEX  = $(CP) -O ihex
 BIN  = $(CP) -O binary
+
+NM   = $(TRGT)nm
 
 # General flags for optimisation and debugging
 OPT = -O2 -ggdb -fomit-frame-pointer -falign-functions=16
@@ -141,6 +146,17 @@ MAKE_ALL_RULE_HOOK:
 	@printf $(printf_format) "Flags:" "$(CFLAGS)" >> $(ARCHIVEDIR)/$(ARCHIVE_NAME).log
 	@echo "------------------------------------------------" >> $(ARCHIVEDIR)/$(ARCHIVE_NAME).log
 	@$(SZ) $(BUILDDIR)/$(PROJECT).elf >> $(ARCHIVEDIR)/$(ARCHIVE_NAME).log
+	@echo -e "\nMEMORY USAGE:" >> $(ARCHIVEDIR)/$(ARCHIVE_NAME).log
+	@$(SZ) $(BUILDDIR)/$(PROJECT).elf | tail -n 1 | awk '{ \
+		text=$$1; data=$$2; bss=$$3; \
+		flash=text+data; ram=data+bss; \
+		printf "Flash: %d / $(FLASH_SIZE) bytes (%.2f%%)\n", flash, (flash*100/$(FLASH_SIZE)); \
+		printf "RAM:   %d / $(RAM_SIZE) bytes (%.2f%%)\n", ram, (ram*100/$(RAM_SIZE)); \
+	}' >> $(ARCHIVEDIR)/$(ARCHIVE_NAME).log
+	@echo -e "\nTOP 10 HEAVIEST FUNCTIONS/OBJECTS:" >> $(ARCHIVEDIR)/$(ARCHIVE_NAME).log
+	@echo "SIZE (dec)  TYPE  NAME" >> $(ARCHIVEDIR)/$(ARCHIVE_NAME).log
+	@$(NM) --print-size --size-sort --radix=d $(BUILDDIR)/$(PROJECT).elf | tail -n 10 | tac >> $(ARCHIVEDIR)/$(ARCHIVE_NAME).log
+	@echo "------------------------------------------------" >> $(ARCHIVEDIR)/$(ARCHIVE_NAME).log
 	@echo "Build archived: $(ARCHIVE_NAME)"
 
 # Creating the necessary directories
@@ -206,6 +222,8 @@ clean:
 	-rm -fR .dep $(BUILDDIR)
 	@echo "Done"
 
+log:
+	@ls -t $(ARCHIVEDIR)/*.log 2>/dev/null | head -n 1 | xargs -r cat || echo "Logs not found in $(ARCHIVEDIR)"
 ################################################################################
 # Include the dependency files, should be the last of the makefile
 #
