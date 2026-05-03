@@ -189,7 +189,12 @@ void i2c1_oled_init(void)
     I2C1->CR1 |= I2C_CR1_PE;
 }
 
-
+/*
+Return logic:
+  * 1 - all is well (TXIS is up).
+  * 0 - NACK received (display did not respond).
+  * -1 - critical error/timeout.
+*/
 int i2c1_oled_waittxis(void)
 {
     uint32_t timeout = 100000;
