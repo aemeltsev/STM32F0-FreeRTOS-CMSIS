@@ -51,15 +51,15 @@
 extern const uint8_t font5x7[][5];
 extern const uint8_t font5x7_RU[][5];
 
-void I2C1_OLED_Init(void);
-int I2C_OLED_WaitTXIS(void);
-void OLED_SendCommand(uint8_t cmd);
-void OLED_SendData(uint8_t* data, uint16_t size);
-void OLED_Init(void);
-void OLED_Clear(void);
-void OLED_SetCursor(uint8_t column, uint8_t page);
-void OLED_DrawChar(uint8_t *font_char);
-void OLED_PutC(char c);
-void OLED_PutS(char* str);
+void i2c1_oled_init(void);
+int i2c1_oled_waittxis(void);
+void oled_sendcommand(uint8_t cmd);
+void oled_senddata(uint8_t* data, uint16_t size);
+void oled_init(void);
+void oled_clear(void);
+void oled_setcursor(uint8_t column, uint8_t page);
+void oled_drawchar(uint8_t *font_char);
+void oled_putc(char c);
+void oled_puts(char* str);
 
 #endif // SSD1306_H

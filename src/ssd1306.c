@@ -144,7 +144,7 @@ Timings (TIMINGR): Unlike older series (F1), this is a complex register.
 The value 0x00902025 is written to the register for a frequency of 400 kHz at a 48 MHz clock frequency. 
 The value 0x10805E89 is for a frequency of 100 kHz at a 48 MHz clock frequency.
 */
-void I2C1_OLED_Init(void)
+void i2c1_oled_init(void)
 {
     // 1. Clocking for GPIOB and I2C1
     RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
@@ -189,7 +189,7 @@ void I2C1_OLED_Init(void)
     I2C1->CR1 |= I2C_CR1_PE;
 }
 
-int I2C_OLED_WaitTXIS(void)
+int i2c1_oled_waittxis(void)
 {
     /*
     I2C_ISR_TXIS - The flag is raised when the TXDR register is empty and ready to receive a new byte.
@@ -213,7 +213,7 @@ int I2C_OLED_WaitTXIS(void)
 /*
 For the SSD1306, command is always a two-byte packet: Control byte (0x00) + Command byte.
 */
-void OLED_SendCommand(uint8_t cmd)
+void oled_sendcommand(uint8_t cmd)
 {
     I2C1->CR2 &= ~(I2C_CR2_SADD | I2C_CR2_NBYTES | I2C_CR2_RD_WRN); 
 	// Set the display address. Specify that we will transfer 2 bytes. Generate a start condition.
@@ -236,7 +236,7 @@ Chunking: The entire screen buffer is 1024 bytes.
 The NBYTES register in the STM32 is only 8 bits in size,
 meaning it can send a maximum of 255 bytes at a time.
 */
-void OLED_SendData(uint8_t* data, uint16_t size)
+void oled_senddata(uint8_t* data, uint16_t size)
 {
     uint16_t sent = 0;
     while (sent < size)
@@ -269,60 +269,75 @@ void OLED_SendData(uint8_t* data, uint16_t size)
     }
 }
 
-void OLED_Init(void)
+/*
+Initialization sequence for an OLED display with 
+an SSD1306 controller (128x64 resolution).
+  * First, the display is blanked (DISPLAYOFF) to ensure proper setup. 
+    The refresh rate is set (SETDISPLAYCLOCKDIV).
+  * SETMULTIPLEX with the parameter 0x3F (63) tells the controller to use all 64 lines.
+  * The CHARGEPUMP and 0x14 commands (usually hidden behind PUMP_ON) enable 
+    the internal voltage multiplier. Without this, the display simply won't light up from 3.3V.
+  * SEGREMAP_127 and COMSCANDEC together rotate the image 180 degrees. 
+    This is convenient if the display connector is on the top rather than the bottom.
+  * ADDR_HORIZ enables horizontal addressing. This means that when you send data bytes, 
+    the cursor automatically moves to the next line after the current line is 
+    filled—perfect for quickly filling a frame. 
+  * SETCONTRAST with a value of 0xCF sets a fairly high brightness.
+*/
+void oled_init(void)
 {
-    OLED_SendCommand(SSD1306_DISPLAYOFF);
+    oled_sendcommand(SSD1306_DISPLAYOFF);
     
-    OLED_SendCommand(SSD1306_SETDISPLAYCLOCKDIV);
-    OLED_SendCommand(0x80);
+    oled_sendcommand(SSD1306_SETDISPLAYCLOCKDIV);
+    oled_sendcommand(0x80);
     
-    OLED_SendCommand(SSD1306_SETMULTIPLEX);
-    OLED_SendCommand(0x3F); // For 128x64
+    oled_sendcommand(SSD1306_SETMULTIPLEX);
+    oled_sendcommand(0x3F); // For 128x64
 
-    OLED_SendCommand(SSD1306_SETDISPLAYOFFSET);
-    OLED_SendCommand(0x00);
+    oled_sendcommand(SSD1306_SETDISPLAYOFFSET);
+    oled_sendcommand(0x00);
     
-    OLED_SendCommand(SSD1306_SETSTARTLINE | 0x00);
+    oled_sendcommand(SSD1306_SETSTARTLINE | 0x00);
     
-    OLED_SendCommand(SSD1306_CHARGEPUMP);
-    OLED_SendCommand(SSD1306_PUMP_ON);
+    oled_sendcommand(SSD1306_CHARGEPUMP);
+    oled_sendcommand(SSD1306_PUMP_ON);
     
-    OLED_SendCommand(SSD1306_MEMORYMODE);
-    OLED_SendCommand(SSD1306_ADDR_HORIZ);
+    oled_sendcommand(SSD1306_MEMORYMODE);
+    oled_sendcommand(SSD1306_ADDR_HORIZ);
     
-    OLED_SendCommand(SSD1306_SEGREMAP_127); // Flip horizontally
-    OLED_SendCommand(SSD1306_COMSCANDEC);   // Flip vertically
+    oled_sendcommand(SSD1306_SEGREMAP_127); // Flip horizontally
+    oled_sendcommand(SSD1306_COMSCANDEC);   // Flip vertically
     
-    OLED_SendCommand(SSD1306_SETCOMPINS);
-    OLED_SendCommand(0x12);
+    oled_sendcommand(SSD1306_SETCOMPINS);
+    oled_sendcommand(0x12);
     
-    OLED_SendCommand(SSD1306_SETCONTRAST);
-    OLED_SendCommand(0xCF);
+    oled_sendcommand(SSD1306_SETCONTRAST);
+    oled_sendcommand(0xCF);
     
-    OLED_SendCommand(SSD1306_SETPRECHARGE);
-    OLED_SendCommand(0xF1);
+    oled_sendcommand(SSD1306_SETPRECHARGE);
+    oled_sendcommand(0xF1);
     
-    OLED_SendCommand(SSD1306_SETVCOMDETECT);
-    OLED_SendCommand(0x40);
+    oled_sendcommand(SSD1306_SETVCOMDETECT);
+    oled_sendcommand(0x40);
     
-    OLED_SendCommand(SSD1306_DISPLAYALLON_RESUME);
-    OLED_SendCommand(SSD1306_NORMALDISPLAY);
-    OLED_SendCommand(SSD1306_DISPLAYON);
+    oled_sendcommand(SSD1306_DISPLAYALLON_RESUME);
+    oled_sendcommand(SSD1306_NORMALDISPLAY);
+    oled_sendcommand(SSD1306_DISPLAYON);
 }
 
 /*
 Given the NBYTES (255 bytes) limitation we discussed earlier, 
 the easiest way to clear is in cycles of 128 bytes (one page).
 */
-void OLED_Clear(void)
+void oled_clear(void)
 {
-    OLED_SetCursor(0, 0); // First, let's go back to the beginning
+    oled_setcursor(0, 0); // First, let's go back to the beginning
     uint8_t zero_page[128] = {0}; // Empty string
     
     // In Horizontal Addressing mode, the cursor will automatically move to a new line
     // We need to fill 8 lines (pages) of 128 pixels each
     for (uint8_t i = 0; i < 8; i++) {
-        OLED_SendData(zero_page, 128);
+        oled_senddata(zero_page, 128);
     }
 }
 
@@ -330,34 +345,33 @@ void OLED_Clear(void)
 To write in a specific location on the screen, 
 you need to send commands to set the "window" or position.
 */
-void OLED_SetCursor(uint8_t column, uint8_t page)
+void oled_setcursor(uint8_t column, uint8_t page)
 {
     // Specify the column range (from column to 127)
-    OLED_SendCommand(SSD1306_COLUMNADDR);
-    OLED_SendCommand(column);
-    OLED_SendCommand(127);
+    oled_sendcommand(SSD1306_COLUMNADDR);
+    oled_sendcommand(column);
+    oled_sendcommand(127);
 
     // Specify the range of pages (lines) (from page to 7)
-    OLED_SendCommand(SSD1306_PAGEADDR);
-    OLED_SendCommand(page);
-    OLED_SendCommand(7);
+    oled_sendcommand(SSD1306_PAGEADDR);
+    oled_sendcommand(page);
+    oled_sendcommand(7);
 }
-
 
 /*
 Example array for letter 'A' (5 bytes) - 0x7E, 0x11, 0x11, 0x11, 0x7E
 */
-void OLED_DrawChar(uint8_t *font_char)
+void oled_drawchar(uint8_t *font_char)
 {
     /* 
     Just send 5 data bytes to the display
     If Horizontal Mode is enabled, the cursor will move to the right
     */
-    OLED_SendData(font_char, 5);
+    oled_senddata(font_char, 5);
     
     // Add the empty column (1 pixel) between letters for much better reading
     uint8_t space = 0x00;
-    OLED_SendData(&space, 1);
+    oled_senddata(&space, 1);
 }
 
 /*
@@ -366,7 +380,7 @@ Call OLED_Clear() to clear out any garbage.
 Call OLED_SetCursor(0, 0), starting writing from the upper-left corner.
 Call OLED_DrawChar(...) as many times as you need characters.
 */
-void OLED_PutC(char c)
+void oled_putc(char c)
 {
     if (c < 32 || c > 126) c = ' '; // Replace unknown characters with spaces
     
@@ -374,17 +388,17 @@ void OLED_PutC(char c)
     Take 5 bytes from the font array for a specific character
     And send them to the display
     */
-    OLED_SendData((uint8_t*)font5x7[c - 32], 5);
+    oled_senddata((uint8_t*)font5x7[c - 32], 5);
     
     // Add 1 empty column (character spacing)
     uint8_t space = 0x00;
-    OLED_SendData(&space, 1);
+    oled_senddata(&space, 1);
 }
 
-void OLED_PutS(char* str)
+void oled_puts(char* str)
 {
     while (*str) {
-        OLED_PutC(*str++);
+        oled_putc(*str++);
     }
 }
 
