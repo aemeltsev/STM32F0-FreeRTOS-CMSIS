@@ -28,15 +28,15 @@ int main(void)
     // uint8_t button_state = 0;
 
     // OLED-код 
-    I2C1_OLED_Init(); 
-    OLED_Init(); 
-    OLED_Clear(); 
+    i2c1_oled_init(); 
+    oled_init(); 
+    oled_clear(); 
     
-    OLED_SetCursor (0, 0); // Левый крайний угол 
-    OLED_PutS("Привет, STM32!"); 
+    oled_setcursor (0, 0); // Левый крайний угол 
+    oled_puts("Привет, STM32!"); 
     
-    OLED_SetCursor (0, 2); // Третья строка (страница) 
-    OLED_PutS("Температура: 25,5°C");
+    oled_setcursor (0, 2); // Третья строка (страница) 
+    oled_puts("Температура: 25,5°C");
 
     while (1)
     {
