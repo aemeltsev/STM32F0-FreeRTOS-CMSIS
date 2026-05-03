@@ -189,13 +189,16 @@ void i2c1_oled_init(void)
     I2C1->CR1 |= I2C_CR1_PE;
 }
 
+
 int i2c1_oled_waittxis(void)
 {
+    uint32_t timeout = 100000;
     /*
     I2C_ISR_TXIS - The flag is raised when the TXDR register is empty and ready to receive a new byte.
     I2C_ISR_NACKF - If the display does not respond (e.g., a poor connection), the cycle is interrupted.
     */
-    while (!(I2C1->ISR & (I2C_ISR_TXIS | I2C_ISR_NACKF)));
+    while (!(I2C1->ISR & (I2C_ISR_TXIS | I2C_ISR_NACKF)) && --timeout);
+    if (timeout == 0) return -1; // Error by timeout
 	
 	/*
     If a NACK is received, clear the flag (NACKCF) and generate a STOP to free the bus.
