@@ -2,7 +2,7 @@
 
 void init_button_led(void)
 {
-    // Нужная кнопка подключена к 0-ому выводу порта A, а светодиод - к 13-ому выводу порта C.
+    // The needed button is connected to pin 0 of port A, and the LED is connected to pin 13 of port C.
     // Enable the GPIOA and GPIOC peripheral clocks
     SET_BIT(RCC->AHBENR, (RCC_AHBENR_GPIOAEN | RCC_AHBENR_GPIOCEN));
 
@@ -37,13 +37,12 @@ void button_to_led(uint8_t *button_state)
 
 void init_buttons_for_bin_sum(void)
 {
-    /* Реализовать сумматор двоичных чисел.
-     В ходе работы микроконтроллер должен считывать
-     с переключателей два 4-х значных двоичных числа
-     и выводить их сумму на светодиоды.
-     Нужные кнопки подключены к выводам 0, 1, 2, 3, 4, 5, 6, 7 порта A - DIP-переключатель 8 контактов,
-     а светодиоды - к 8-ому, 9-ому, 10-ому, 11-ому выводу порта A.
-     */
+    /* Implement a binary adder.
+     * During operation, the microcontroller should read two 4-digit binary numbers from the switches 
+     * and display their sum on the LEDs.
+     * The required buttons are connected to pins 0, 1, 2, 3, 4, 5, 6, and 7 of Port A 
+     * (an 8-pin DIP switch), and the LEDs are connected to pins 8, 9, 10, and 11 of Port A.
+     * */
     // Enable the GPIOA peripheral clocks
     SET_BIT(RCC->AHBENR, RCC_AHBENR_GPIOAEN);
 
