@@ -1,3 +1,12 @@
+/**
+ *******************************************
+ * @file    button.c
+ * @author  Anton Emeltsev
+ * @version 1.0
+ * @date	4-February-2025
+ * @brief   This header file part of Cortex-M0, M0+ lib
+ *******************************************
+ */
 #include "button.h"
 
 void init_button_led(void)

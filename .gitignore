@@ -17,6 +17,9 @@ Thumbs.db
 # Ignore temporary folders
 /temp/
 /dist/
+build/
+.vscode/
+
 
 # Ignore object files
 *.o

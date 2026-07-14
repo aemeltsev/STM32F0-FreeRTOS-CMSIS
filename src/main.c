@@ -3,8 +3,6 @@
 #include "util.h"
 #include "button.h"
 
-extern uint32_t SystemCoreClock;
-
 uint8_t ClockInitHSI48MHz(void);
 uint8_t ClockInitHSI24MHz(void);
 uint8_t ClockInitHSI8MHz(void);
@@ -38,9 +36,54 @@ int main(void)
     oled_setcursor (0, 2); // Третья строка (страница) 
     oled_puts("Температура: 25,5°C");
 
+    //usart1_gpio_init();
+    //configure_usart1(8, 16, 1, 2);
+
+    //spi2_enable();
+    //spi1_enable();
+    
+    //write(spi1_tx_buffer, WHO_AM_I, 1);
+    //read(spi2_rx_buffer, WHO_AM_I, 1);
+    //check_data(spi1_tx_buffer, spi2_rx_buffer, 1);
+
+    //usart1_send(spi2_rx_buffer, sizeof(spi2_rx_buffer));
+    RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
+
+    CLEAR_BIT(GPIOC->MODER, GPIO_MODER_MODER13);
+    SET_BIT(GPIOC->MODER, GPIO_MODER_MODER13_0);
+    CLEAR_BIT(GPIOC->OTYPER, GPIO_OTYPER_OT_13);
+    CLEAR_BIT(GPIOC->OSPEEDR, GPIO_OSPEEDER_OSPEEDR13);
+    SET_BIT(GPIOC->OSPEEDR, GPIO_OSPEEDER_OSPEEDR13_0);
+    
     while (1)
     {
-        // button_to_led(&button_state);
+        // Включаем светодиод (устанавливаем PC13 в 1)
+        *(uint32_t*)((uint32_t)GPIOC + 0x18) = GPIO_BSRR_BS_13;
+        // Задержка
+        for (volatile uint32_t i = 0; i < 1000000; i++);
+
+        // Выключаем светодиод (сбрасываем PC13 в 0)
+        *(uint32_t*)((uint32_t)GPIOC + 0x18) = GPIO_BSRR_BR_13;
+        // Задержка
+        for (volatile uint32_t i = 0; i < 1000000; i++);
+
+        // Включаем светодиод (устанавливаем PC13 в 1)
+        *(uint32_t*)((uint32_t)GPIOC + 0x18) = GPIO_BSRR_BS_13;
+        // Задержка
+        for (volatile uint32_t i = 0; i < 1000000; i++);
+        
+        // Выключаем светодиод (сбрасываем PC13 в 0)
+        *(uint32_t*)((uint32_t)GPIOC + 0x18) = GPIO_BSRR_BR_13;
+        // Задержка
+        for (volatile uint32_t i = 0; i < 1000000; i++);
+        
+        
+        // Включаем светодиод (устанавливаем PC13 в 1)
+        *(uint32_t*)((uint32_t)GPIOC + 0x18) = GPIO_BSRR_BS_13;
+        // Задержка
+        for (volatile uint32_t i = 0; i < 9000000; i++);
+
+        //button_to_led(&button_state);
     }
 }
 
@@ -82,7 +125,7 @@ void SysTick_Handler(void)
     }
 }
 
-// --- Variant One: Maximum speed (48 MHz) from internal oscillator ---
+/// --- Вариант 1: Максимальная скорость (48 МГц) ---
 uint8_t ClockInitHSI48MHz(void)
 {
     /*
@@ -102,22 +145,25 @@ uint8_t ClockInitHSI48MHz(void)
         --timeout;
     }
 
+
     // 4. FLASH CONFIGURATION (Critically Important!)
     // Set Wait State to 1 and enable Prefetch
     FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
 
+
     // 2. Configure PLL
-    // Before configure PLL have got to disable
+    // Перед настройкой PLL должен быть выключен
     if (RCC->CR & RCC_CR_PLLON) {
         RCC->CR &= ~RCC_CR_PLLON;
         while (RCC->CR & RCC_CR_PLLRDY);
     }
-    // Source PLL = HSI/2 (4MHz). Multiplier = 12. Result 48MHz.
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
     RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
     RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
     
     RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
     RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
 
     // 3. Enable PLL
     RCC->CR |= RCC_CR_PLLON;
@@ -128,6 +174,7 @@ uint8_t ClockInitHSI48MHz(void)
         --timeout;
     }
 
+
     // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
     RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
     RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
@@ -135,35 +182,7027 @@ uint8_t ClockInitHSI48MHz(void)
     RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
     RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
 
+
     // 6. Select the PLL as the system clock source and wait for it to be switched
     RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
     RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
     while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
 
-    // 7. Configure clocks for peripherals (after switch on PLL)
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
     
-    // We explicitly tell USART1 to use the system frequencies (48 MHz)
+    // Явно указываем USART1 использовать системную частоту (48МГц)
     RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
     RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
     
-    // We explicitly tell I2C1 to use the system frequency (48 MHz)
-    // This VERY IMPORTANT for timing 0x10805E89
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
     RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
     RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
 
     // Enable SYSCFG clock
     RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
 
+
     /*
-    // For I2C1, recommend using SYSCLK (48MHz) 
-    // This will allow you to more accurately adjust the 100/400 kHz timings.
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
     RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
     */
 
-    // 8. Update SystemCoreClock (standart method CMSIS)
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
     SystemCoreClockUpdate(); 
-    return 1; // Success
+    return 1; // Успех
 }
+
+
+u// --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+{// --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+ // --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
+}// --- Вариант 1: Максимальная скорость (48 МГц) ---
+uint8_t ClockInitHSI48MHz(void)
+{
+    /*
+    HSI - it's already enabled after reset.
+    Set the PLL parameters in RCC->CFGR
+    enable PLL in RCC->CR
+    wait for PLL stabiized
+    set Flash wait states
+    Switch to PLL clock
+    https://community.st.com/t5/stm32-mcus-products/configure-system-clock-using-registers-for-stm32f030k6t6/td-p/132791
+    */
+    // 1. Enable HSI oscillator and wait for it to be ready
+    uint32_t timeout = 0xFFFF;
+    RCC->CR |= RCC_CR_HSION;
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0){
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 4. FLASH CONFIGURATION (Critically Important!)
+    // Set Wait State to 1 and enable Prefetch
+    FLASH->ACR = FLASH_ACR_LATENCY | FLASH_ACR_PRFTBE;
+
+
+    // 2. Configure PLL
+    // Перед настройкой PLL должен быть выключен
+    if (RCC->CR & RCC_CR_PLLON) {
+        RCC->CR &= ~RCC_CR_PLLON;
+        while (RCC->CR & RCC_CR_PLLRDY);
+    }
+    // Источник PLL = HSI/2 (4МГц). Множитель = 12. Итого 48МГц.
+    RCC->CFGR &= ~RCC_CFGR_PLLSRC; // Clear PLL source
+    RCC->CFGR |= RCC_CFGR_PLLSRC_HSI_DIV2; // Set PLL source to HSI/2
+    
+    RCC->CFGR &= ~RCC_CFGR_PLLMUL; // Clear PLL multiplication factor
+    RCC->CFGR |= RCC_CFGR_PLLMUL12; // Set PLL multiplication factor to 12
+
+
+    // 3. Enable PLL
+    RCC->CR |= RCC_CR_PLLON;
+    timeout = 0xFFFF;
+    while ((RCC->CR & RCC_CR_PLLRDY) == 0)
+    {
+        if(timeout == 0) return 0;
+        --timeout;
+    }
+
+
+    // 5. Configure AHB and APB1 prescalers (AHB = 48MHz, APB = 48MHz)
+    RCC->CFGR &= ~RCC_CFGR_HPRE; // Clear AHB prescaler
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1; // Set AHB prescaler to 1
+    
+    RCC->CFGR &= ~RCC_CFGR_PPRE; // Clear APB1 prescaler
+    RCC->CFGR |= RCC_CFGR_PPRE_DIV1; // Set APB1 prescaler to 1
+
+
+    // 6. Select the PLL as the system clock source and wait for it to be switched
+    RCC->CFGR &= ~RCC_CFGR_SW; // Clear SW bits
+    RCC->CFGR |= RCC_CFGR_SW_PLL; // Set SW to PLL
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
+
+
+    // 7. Конфигурация тактирования периферии (после переключения на PLL)
+    
+    // Явно указываем USART1 использовать системную частоту (48МГц)
+    RCC->CFGR3 &= ~RCC_CFGR3_USART1SW; // Clear USART1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK; // Set USART1 clock source to PCLK
+    
+    // Явно указываем I2C1 использовать системную частоту (48МГц)
+    // Это ОБЯЗАТЕЛЬНО для тайминга 0x10805E89
+    RCC->CFGR3 &= ~RCC_CFGR3_I2C1SW; // Clear I2C1 clock source
+    RCC->CFGR3 |= RCC_CFGR3_I2C1SW_SYSCLK; // Set I2C1 clock source to HSI
+
+
+    // Enable SYSCFG clock
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+
+    /*
+    // Для I2C1 крайне рекомендую использовать SYSCLK (48MHz) 
+    // Это позволит точнее настроить тайминги 100/400 кГц
+    RCC->CFGR3 = (RCC->CFGR3 & ~RCC_CFGR3_I2C1SW) | RCC_CFGR3_I2C1SW_SYSCLK;
+    */
+
+
+    // 8. Обновляем SystemCoreClock (стандартный способ CMSIS)
+    SystemCoreClockUpdate(); 
+    return 1; // Успех
+}
+
+
 
 // --- Variand Two: Medium speed (24 MHz) from internal oscillator ---
 uint8_t ClockInitHSI24MHz(void)

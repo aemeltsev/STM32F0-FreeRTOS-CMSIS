@@ -1,7 +1,15 @@
-
 #ifndef BUTTON_H
 #define BUTTON_H
 
+/**
+ *******************************************
+ * @file    button.h
+ * @author  Anton Emeltsev
+ * @version 1.0
+ * @date	4-February-2025
+ * @brief   This header file part of Cortex-M0, M0+ lib
+ *******************************************
+ */
 #include "stm32f0xx.h"
 #include "util.h"
 
