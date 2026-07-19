@@ -135,7 +135,7 @@ OpenOCD (Open On-Chip Debugger) is open-source software that communicates with a
 OpenOCD is typically used in conjunction with GDB (GNU Debugger) [2]. This allows for setting breakpoints, viewing memory, and stepping through code, providing full control over the device [2].
 
   * Official documentation: [OpenOCD Documentation](https://openocd.org)
-  * Useful guides in Russian: [Part 1](https://microsin.net), [Part 2](https://microsin.net), [Part 3](https://microsin.net).
+  * Useful guides in Russian: [Part 1](https://microsin.net/programming/arm/openocd-manual-part1.html), [Part 2](https://microsin.net/programming/ARM/openocd-manual-part2.html), [Part 3](https://microsin.net/programming/ARM/openocd-manual-part3.html).
 
 Installing Ubuntu using 22.04 as an example
 
