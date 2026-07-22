@@ -59,7 +59,11 @@ CSRC += src/ssd1306.c
 
 ASMSRC += 
 
+# Пути к заголовочным файлам (.h)
 INCDIR += src/conf
+INCDIR += src/protocols
+INCDIR += src/hd_driver
+
 
 ##############################################################################
 # Compiler & Toolchain settings
