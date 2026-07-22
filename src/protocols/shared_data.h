@@ -3,12 +3,15 @@
 
 #include <stdint.h>
 
+/* Включаем упаковку по 1 байту для исключения скрытых зазоров (padding) */
 #define PACKET_SIZE  (12U) /**< Жестко фиксированный размер кадра SPI */
 
 /**
- * @brief Простая универсальная структура для пакетного обмена по SPI1
+ * @brief Универсальная упакованная структура для пакетного обмена по SPI
+ * Итоговый размер: 2 (id) + 1 (cmd) + 8 (data) + 1 (crc8) = 12 байт.
  */
-typedef struct __attribute__((packed)) {
+#pragma pack(push, 1)
+typedef struct {
     uint16_t transaction_id;  /**< ID пакета для синхронизации */
     uint8_t  cmd;             /**< Код команды / Номер регистра */
     
@@ -18,8 +21,11 @@ typedef struct __attribute__((packed)) {
     
     uint8_t  crc8;            /**< Контрольная сумма кадра */
 } SPI_Packet_t;
+/* Возвращаем стандартное выравнивание компилятора */
+#pragma pack(pop)
 
-// Объявляем глобальные переменные обмена для main.c и modbus_slave.c
+// Объявляем внешние переменные (память здесь НЕ выделяется)
+// Доступны во всех файлах, где подключен этот заголовочник
 extern SPI_Packet_t spi_master_tx;
 extern SPI_Packet_t spi_master_rx;
 

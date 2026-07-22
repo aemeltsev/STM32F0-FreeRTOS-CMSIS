@@ -1,6 +1,5 @@
 
 #include "spi_master_hd_drv.h"
-#include "shared_data.h"
 
 void spi1_master_init(void)
 {

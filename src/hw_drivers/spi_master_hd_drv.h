@@ -4,7 +4,7 @@
 #include "stm32f0xx.h"
 #include <stdint.h>
 #include <stdbool.h>
-#include "shared_data.h"
+#include "../protocols/shared_data.h"
 
 /**
  * @brief  Initializes SPI1 as a native 1-Wire Half-Duplex Master (BIDIMODE).
